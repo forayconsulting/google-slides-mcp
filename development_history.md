@@ -243,3 +243,164 @@ Fix tool registration and add stdio credential support
 - batch_update provides escape hatch for edge cases
 - All 47 Google Slides API request types accessible
 - Power users can combine with semantic tools
+
+---
+
+## Phase 3: Template Discovery & Analysis
+
+**Date:** December 2, 2025
+**Duration:** ~40 minutes
+**Context:** Testing the MCP server with real templates, discovering gaps
+
+### The Challenge
+
+Attempting to use the MCP server with a real corporate template (`Corporate_Template.pptx`) revealed several gaps:
+
+1. **No file discovery:** The server could only work with presentations if you already knew the ID
+2. **PPTX files invisible:** PowerPoint files uploaded to Drive weren't being found
+3. **No style extraction:** Understanding a template's structure required manual inspection
+
+### Problem 1: OAuth Scope Limitation
+
+**Observed behavior:** `search_presentations` tool found Google Slides files created by the app, but not the uploaded PPTX template.
+
+**Root cause:** The OAuth scope `drive.file` only grants access to files created by or explicitly opened with the app.
+
+**Solution:** Updated `scripts/get_token.py` to use `drive` scope (full Drive access) instead of `drive.file`.
+
+```python
+# Before
+"https://www.googleapis.com/auth/drive.file"
+
+# After
+"https://www.googleapis.com/auth/drive"
+```
+
+### Problem 2: No File Search Capability
+
+**The gap:** Users couldn't discover templates by name—they needed to manually find the presentation ID from a URL.
+
+**Solution:** Implemented Drive file search capability:
+
+1. **DriveService.list_files():** New method in `services/drive_service.py` that builds Google Drive API queries with support for:
+   - Name search (`name contains 'query'`)
+   - MIME type filtering (Google Slides + PPTX)
+   - Folder scoping
+   - Pagination
+
+2. **search_presentations tool:** New MCP tool in `tools/templates.py` exposing the search capability:
+   ```python
+   search_presentations(
+       query="Corporate_Template",
+       folder_id=None,
+       max_results=20,
+       page_token=None
+   )
+   ```
+
+### Problem 3: PPTX to Google Slides Conversion
+
+**The gap:** PPTX files couldn't be used directly with Google Slides API tools.
+
+**Solution:** Added conversion support via Google Drive's copy-with-conversion:
+
+1. **DriveService.copy_file():** Added optional `target_mime_type` parameter
+2. **copy_template tool:** Added `convert_to_slides` parameter
+
+```python
+copy_template(
+    template_id="...",
+    new_name="My Presentation",
+    convert_to_slides=True  # Converts PPTX → native Google Slides
+)
+```
+
+### Problem 4: Understanding Template Structure
+
+**The insight:** After finding and converting a template, users still needed to manually explore its structure to understand placeholders, colors, fonts, and layout patterns.
+
+**Solution:** Created a comprehensive `analyze_presentation` meta-tool in `tools/analysis.py`:
+
+**What it extracts:**
+- **Overview:** Title, slide count, page dimensions, aspect ratio
+- **Slide inventory:** All slides categorized by type (cover, content, section divider, mockup, infographic, data visualization, etc.)
+- **Color palette:** Unique colors with usage contexts
+- **Typography:** Fonts detected, size distribution, primary font
+- **Placeholder patterns:** Common placeholder text (`EYEBROW TEXT`, `MM.DD.YYYY`, `Full Name // Job Title`)
+- **Recommendations:** Actionable guidance for programmatic usage
+
+**Slide categorization logic:**
+- Detects covers (title + body, early in deck)
+- Identifies section dividers (minimal elements, "section" in title)
+- Recognizes mockups, infographics, data visualizations
+- Classifies image-focused vs content-heavy slides
+
+**Output example:**
+```json
+{
+  "overview": {"total_slides": 75, "aspect_ratio": "16:9"},
+  "typography": {"primary_font": "Nunito Sans"},
+  "placeholder_patterns": {
+    "date_patterns": [{"text": "MM.DD.YYYY", "type": "BODY"}],
+    "name_patterns": [{"text": "Full Name // Job Title, Company name", "type": "BODY"}]
+  },
+  "recommendations": [
+    "Use slides 3, 4, 5, 6 as cover options",
+    "Replace date placeholder 'MM.DD.YYYY' with actual dates",
+    "Workflow: copy_template → delete unused → replace_placeholders → add images"
+  ]
+}
+```
+
+### Implementation Summary
+
+**New files created:**
+- `src/google_slides_mcp/tools/analysis.py` - analyze_presentation tool
+
+**Files modified:**
+- `scripts/get_token.py` - OAuth scope updated to `drive`
+- `src/google_slides_mcp/services/drive_service.py` - Added `list_files()` method, `target_mime_type` param to `copy_file()`
+- `src/google_slides_mcp/tools/templates.py` - Added `search_presentations` tool, `convert_to_slides` param to `copy_template`
+- `src/google_slides_mcp/tools/__init__.py` - Registered analysis tools
+
+**New tools (total now 19):**
+| Tool | Purpose |
+|------|---------|
+| `search_presentations` | Find presentations/templates by name in Google Drive |
+| `analyze_presentation` | Deep-dive style guide extraction from any presentation |
+
+**Enhanced tools:**
+| Tool | Enhancement |
+|------|-------------|
+| `copy_template` | Added `convert_to_slides` param for PPTX → Google Slides conversion |
+
+---
+
+## Timeline Summary (Updated)
+
+| Time | Event | Duration |
+|------|-------|----------|
+| ~17:00-18:00 (Dec 2) | Ideation & PRD (Claude mobile, inflight) | ~1 hour |
+| 21:21 | Repository created | — |
+| 21:39 | Full project structure implemented | 18 min |
+| 22:05 | OAuth documentation added | 26 min |
+| 22:52 | Bug fixes and stdio support | 47 min |
+| ~23:03-23:42 (Dec 2) | Template discovery & analysis features | ~40 min |
+
+**Total implementation time:** ~2.2 hours
+**Total project time (ideation to current state):** ~6.5 hours
+
+---
+
+## Current State (Updated)
+
+**Branch:** `main`
+
+**Project Status:** Functional MCP server with:
+- **19 tools** spanning creation, positioning, templates, analysis, and low-level API access
+- **Template discovery:** Search for presentations by name across Google Drive
+- **PPTX conversion:** Convert PowerPoint files to native Google Slides format
+- **Style guide extraction:** Analyze any presentation to understand structure, colors, fonts, and placeholder patterns
+- Dual authentication: HTTP transport (per-request OAuth) and stdio transport (stored credentials)
+- Semantic positioning using inches with automatic EMU conversion
+- Comprehensive development tooling and documentation

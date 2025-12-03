@@ -31,15 +31,20 @@ class DriveService:
         file_id: str,
         new_name: str,
         parent_folder_id: str | None = None,
+        target_mime_type: str | None = None,
     ) -> dict:
         """Copy a file to create a new file.
 
-        Used for copying presentation templates.
+        Used for copying presentation templates. Can also convert between
+        formats by specifying a target MIME type.
 
         Args:
             file_id: ID of the file to copy
             new_name: Name for the new file
             parent_folder_id: Optional folder ID for the copy
+            target_mime_type: Optional target MIME type for conversion
+                (e.g., 'application/vnd.google-apps.presentation' to
+                convert PPTX to Google Slides)
 
         Returns:
             The newly created file resource
@@ -50,6 +55,8 @@ class DriveService:
         body: dict[str, Any] = {"name": new_name}
         if parent_folder_id:
             body["parents"] = [parent_folder_id]
+        if target_mime_type:
+            body["mimeType"] = target_mime_type
 
         return self.files.copy(fileId=file_id, body=body).execute()
 
@@ -90,6 +97,71 @@ class DriveService:
             HttpError: If the API request fails
         """
         return self.files.export(fileId=file_id, mimeType=mime_type).execute()
+
+    async def list_files(
+        self,
+        query: str | None = None,
+        mime_types: list[str] | None = None,
+        folder_id: str | None = None,
+        page_size: int = 20,
+        page_token: str | None = None,
+        include_trashed: bool = False,
+    ) -> dict:
+        """List files matching the given criteria.
+
+        Args:
+            query: Optional search query (applied to file name)
+            mime_types: List of MIME types to filter by
+            folder_id: Optional folder ID to search within
+            page_size: Maximum number of results (1-100)
+            page_token: Token for pagination
+            include_trashed: Whether to include trashed files
+
+        Returns:
+            Dictionary with:
+            - files: List of file metadata dictionaries
+            - nextPageToken: Token for next page (if more results)
+
+        Raises:
+            HttpError: If the API request fails
+        """
+        # Build query clauses
+        clauses: list[str] = []
+
+        if query:
+            # Escape single quotes in the query
+            escaped_query = query.replace("'", "\\'")
+            clauses.append(f"name contains '{escaped_query}'")
+
+        if mime_types:
+            mime_conditions = " or ".join(
+                f"mimeType = '{mt}'" for mt in mime_types
+            )
+            clauses.append(f"({mime_conditions})")
+
+        if folder_id:
+            clauses.append(f"'{folder_id}' in parents")
+
+        if not include_trashed:
+            clauses.append("trashed = false")
+
+        # Combine clauses with AND
+        q = " and ".join(clauses) if clauses else None
+
+        # Clamp page_size to valid range
+        page_size = max(1, min(100, page_size))
+
+        # Build request parameters
+        params: dict[str, Any] = {
+            "pageSize": page_size,
+            "fields": "nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,owners)",
+        }
+        if q:
+            params["q"] = q
+        if page_token:
+            params["pageToken"] = page_token
+
+        return self.files.list(**params).execute()
 
 
 def build_drive_service(credentials: Any) -> DriveService:

@@ -3,6 +3,7 @@
 Each module registers its tools with the FastMCP application.
 """
 
+from google_slides_mcp.tools.analysis import register_analysis_tools
 from google_slides_mcp.tools.creation import register_creation_tools
 from google_slides_mcp.tools.low_level import register_low_level_tools
 from google_slides_mcp.tools.positioning import register_positioning_tools
@@ -21,10 +22,12 @@ def register_all_tools(mcp) -> None:
     register_positioning_tools(mcp)
     register_creation_tools(mcp)
     register_utility_tools(mcp)
+    register_analysis_tools(mcp)
 
 
 __all__ = [
     "register_all_tools",
+    "register_analysis_tools",
     "register_low_level_tools",
     "register_template_tools",
     "register_positioning_tools",

@@ -129,9 +129,10 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 - `get_page` - Get detailed information about a specific slide
 
 ### Template Tools
-- `copy_template` - Copy a Google Slides template to create a new presentation
+- `copy_template` - Copy a Google Slides template to create a new presentation (supports PPTX → Google Slides conversion)
 - `replace_placeholders` - Replace placeholder text throughout a presentation
 - `replace_placeholder_with_image` - Replace placeholder shapes with images
+- `search_presentations` - Search for presentations and templates by name in Google Drive
 
 ### Positioning Tools
 - `position_element` - Position and size elements using inches and alignment
@@ -148,6 +149,9 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 - `list_slides` - List all slides with IDs and titles
 - `get_element_info` - Get element details in human-readable format
 - `export_thumbnail` - Generate slide thumbnails
+
+### Analysis Tools
+- `analyze_presentation` - Deep-dive style guide extraction (colors, fonts, placeholders, layout patterns)
 
 ## Development
 

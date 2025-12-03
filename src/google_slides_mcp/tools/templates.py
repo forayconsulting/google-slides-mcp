@@ -25,21 +25,29 @@ def register_template_tools(mcp: "FastMCP") -> None:
         template_id: str,
         new_name: str,
         destination_folder_id: str | None = None,
+        convert_to_slides: bool = False,
     ) -> dict:
         """Copy a Google Slides template to create a new presentation.
+
+        Can also convert PowerPoint (.pptx) files to native Google Slides format.
 
         Args:
             template_id: Source presentation ID to copy
             new_name: Name for the new presentation
             destination_folder_id: Optional Drive folder ID for the copy
+            convert_to_slides: If True, convert the source file to Google Slides
+                format. Use this when copying a .pptx file.
 
         Returns:
             Dictionary with:
             - presentation_id: ID of the new presentation
             - url: Direct URL to open the presentation
+            - converted: Whether format conversion was performed
         """
         from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
         from google_slides_mcp.services.drive_service import DriveService
+
+        MIME_GOOGLE_SLIDES = "application/vnd.google-apps.presentation"
 
         middleware = GoogleAuthMiddleware()
         credentials = await middleware.extract_credentials(ctx)
@@ -49,11 +57,13 @@ def register_template_tools(mcp: "FastMCP") -> None:
             file_id=template_id,
             new_name=new_name,
             parent_folder_id=destination_folder_id,
+            target_mime_type=MIME_GOOGLE_SLIDES if convert_to_slides else None,
         )
 
         return {
             "presentation_id": result["id"],
             "url": f"https://docs.google.com/presentation/d/{result['id']}",
+            "converted": convert_to_slides,
         }
 
     @mcp.tool()
@@ -152,3 +162,79 @@ def register_template_tools(mcp: "FastMCP") -> None:
         )
 
         return {"shapes_replaced": occurrences}
+
+    @mcp.tool()
+    async def search_presentations(
+        ctx: Context,
+        query: str | None = None,
+        folder_id: str | None = None,
+        max_results: int = 20,
+        page_token: str | None = None,
+    ) -> dict:
+        """Search for presentations in Google Drive.
+
+        Use this to discover presentation templates or find existing
+        presentations by name. Returns Google Slides presentations and
+        PowerPoint files.
+
+        Args:
+            query: Search term to match against file names. If omitted,
+                returns all accessible presentations.
+            folder_id: Limit search to a specific folder ID
+            max_results: Maximum number of results to return (1-100, default 20)
+            page_token: Token for retrieving the next page of results
+
+        Returns:
+            Dictionary with:
+            - presentations: List of presentation info with:
+                - id: Presentation ID (use with copy_template)
+                - name: File name
+                - mimeType: File type
+                - createdTime: ISO timestamp
+                - modifiedTime: ISO timestamp
+                - url: Direct URL to open
+                - owner: Owner email (if available)
+            - next_page_token: Token for next page (if more results)
+            - total_returned: Number of results in this response
+        """
+        from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
+        from google_slides_mcp.services.drive_service import DriveService
+
+        # Presentation MIME types
+        MIME_GOOGLE_SLIDES = "application/vnd.google-apps.presentation"
+        MIME_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+        middleware = GoogleAuthMiddleware()
+        credentials = await middleware.extract_credentials(ctx)
+        service = DriveService(credentials)
+
+        result = await service.list_files(
+            query=query,
+            mime_types=[MIME_GOOGLE_SLIDES, MIME_PPTX],
+            folder_id=folder_id,
+            page_size=max_results,
+            page_token=page_token,
+        )
+
+        # Transform response for better usability
+        presentations = []
+        for f in result.get("files", []):
+            pres = {
+                "id": f["id"],
+                "name": f["name"],
+                "mimeType": f["mimeType"],
+                "createdTime": f.get("createdTime"),
+                "modifiedTime": f.get("modifiedTime"),
+                "url": f"https://docs.google.com/presentation/d/{f['id']}",
+            }
+            # Extract owner email if available
+            owners = f.get("owners", [])
+            if owners:
+                pres["owner"] = owners[0].get("emailAddress")
+            presentations.append(pres)
+
+        return {
+            "presentations": presentations,
+            "next_page_token": result.get("nextPageToken"),
+            "total_returned": len(presentations),
+        }
