@@ -543,3 +543,167 @@ apply_text_style(presentation_id, "TITLE", font_size_pt=40, bold=True)
 
 **Total implementation time:** ~3 hours
 **Total project time (ideation to current state):** ~7 hours
+
+---
+
+## Phase 5: Cloudflare Workers Port & Monorepo Restructure
+
+**Date:** December 3, 2025
+**Duration:** ~4 hours
+**Context:** Wanted remote access for Claude Mobile; FastMCP's HTTP transport had friction
+
+### The Motivation
+
+After completing the Python implementation, two issues emerged:
+
+1. **Claude Mobile access:** The stdio transport only works with Claude Desktop/Code. For mobile access, a remote HTTP/SSE endpoint was needed.
+
+2. **FastMCP HTTP friction:** While FastMCP supports streamable-http transport, the OAuth provider setup had some rough edges for per-user Google auth flows.
+
+### The Decision: Cloudflare Workers
+
+Cloudflare Workers was selected for the remote implementation:
+
+**Advantages:**
+- **Free tier:** Generous limits for personal use
+- **Edge deployment:** Low latency globally
+- **Durable Objects:** Built-in session state management
+- **agents-sdk:** First-class MCP support with OAuthProvider pattern
+- **No cold starts:** Instant response times
+
+**Trade-offs:**
+- No `googleapis` npm package (bundle too large for Workers)
+- Must use direct REST calls to Google APIs
+- Different auth flow (MCP OAuth 2.1 with PKCE + upstream Google OAuth)
+
+### Implementation Approach
+
+#### Monorepo Restructure
+
+Converted to packages structure:
+```
+google-slides-mcp/
+├── packages/
+│   ├── python/          # Original FastMCP implementation
+│   └── cloudflare/      # New Cloudflare Workers implementation
+├── docs/                # Shared documentation
+└── README.md
+```
+
+#### Cloudflare Architecture
+
+```
+Request → OAuthProvider (src/index.ts)
+              ↓
+         McpAgent Durable Object (src/mcp-agent.ts)
+              ↓
+         Tool handlers (src/tools/*.ts)
+              ↓
+         Google APIs via fetch() (src/api/*.ts)
+```
+
+**Key components:**
+
+1. **OAuthProvider** (`src/index.ts`): Handles MCP OAuth 2.1 with PKCE
+   - `/authorize` - Initiates auth flow
+   - `/token` - Token exchange
+   - `/sse` - SSE transport endpoint
+
+2. **McpAgent** (`src/mcp-agent.ts`): Durable Object for session state
+   - Extends `McpAgent` from agents-sdk
+   - Stores Google access token in session props
+   - Registers all 21 tools
+
+3. **Google OAuth Handler** (`src/auth/google-oauth.ts`): Upstream auth
+   - `/callback/google/auth` - Redirect to Google consent
+   - `/callback/google/callback` - Handle Google's callback
+
+4. **Direct REST Clients** (`src/api/`):
+   - `slides.ts` - Google Slides API calls
+   - `drive.ts` - Google Drive API calls
+   - No googleapis dependency, just fetch()
+
+#### Tool Port Process
+
+All 22 Python tools were ported to TypeScript:
+
+| Category | Tools | Notes |
+|----------|-------|-------|
+| Low-level | 3 | Direct API passthrough |
+| Templates | 4 | `search_presentations` uses Drive API |
+| Positioning | 3 | EMU math in `utils/units.ts` |
+| Creation | 4 | Shape/text box creation |
+| Utility | 3 | Thumbnail export uses authenticated URL |
+| Content | 3 | Semantic placeholder updates |
+| Analysis | 1 | Style guide extraction |
+
+**Total: 21 tools** (removed one redundant tool during port)
+
+#### Utility Ports
+
+- `utils/units.ts` - EMU ↔ inches conversion (914,400 EMU = 1 inch)
+- `utils/colors.ts` - Color parsing (hex, rgb, named colors)
+- `utils/transforms.ts` - Transform matrix utilities
+
+### Deployment
+
+```bash
+cd packages/cloudflare
+npm install
+npx wrangler kv namespace create "OAUTH_KV"
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+npx wrangler secret put COOKIE_ENCRYPTION_KEY
+npm run deploy
+```
+
+**Live endpoint:** `https://google-slides-mcp.foray-consulting.workers.dev/sse`
+
+### Documentation Updates
+
+- **README.md:** Rewritten for monorepo structure, dual deployment options
+- **CLAUDE.md:** Updated with Cloudflare-first architecture documentation
+- **development_history.md:** This section added
+
+---
+
+## Timeline Summary (Updated)
+
+| Time | Event | Duration |
+|------|-------|----------|
+| ~17:00-18:00 (Dec 2) | Ideation & PRD (Claude mobile, inflight) | ~1 hour |
+| 21:21 | Repository created | — |
+| 21:39 | Full project structure implemented | 18 min |
+| 22:05 | OAuth documentation added | 26 min |
+| 22:52 | Bug fixes and stdio support | 47 min |
+| ~23:03-23:42 (Dec 2) | Template discovery & analysis features | ~40 min |
+| ~afternoon (Dec 3) | Semantic content tools | ~45 min |
+| ~evening (Dec 3) | Cloudflare Workers port & monorepo | ~4 hours |
+
+**Total implementation time:** ~7 hours
+**Total project time (ideation to current state):** ~11 hours
+
+---
+
+## Current State (Updated)
+
+**Branch:** `main`
+
+**Project Status:** Dual-deployment MCP server:
+
+**Python Package (packages/python/):**
+- FastMCP 2.x implementation
+- Stdio transport for Claude Desktop/Code
+- 22 tools (all categories)
+
+**Cloudflare Workers (packages/cloudflare/):**
+- agents-sdk OAuthProvider implementation
+- SSE transport for Claude Mobile/web
+- 21 tools (all categories)
+- Live at: https://google-slides-mcp.foray-consulting.workers.dev/sse
+
+**Shared:**
+- Semantic positioning using inches
+- Full Google Slides API access via batch_update
+- Template discovery and analysis
+- Per-user Google OAuth

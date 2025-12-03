@@ -1,0 +1,32 @@
+# Google Slides MCP Server - Cloudflare Workers
+name = "google-slides-mcp"
+main = "src/index.ts"
+compatibility_date = "2025-03-10"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+# KV Namespace for OAuth token storage
+# Create with: wrangler kv:namespace create "OAUTH_KV"
+# Then update the id below
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "70fdf0cbddf9478e883f251da198073f"
+
+# Durable Objects for MCP agent state
+[[durable_objects.bindings]]
+name = "MCP_OBJECT"
+class_name = "GoogleSlidesMCP"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GoogleSlidesMCP"]
+
+[dev]
+port = 8788
+
+# Secrets (set via wrangler secret put):
+# - GOOGLE_CLIENT_ID
+# - GOOGLE_CLIENT_SECRET
+# - COOKIE_ENCRYPTION_KEY

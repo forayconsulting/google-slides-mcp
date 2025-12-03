@@ -67,3 +67,8 @@ token.json
 
 # Jupyter
 .ipynb_checkpoints/
+.dev.vars
+
+# Node.js
+node_modules/
+.wrangler/

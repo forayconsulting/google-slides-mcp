@@ -1,127 +1,70 @@
 # Google Slides MCP Server
 
-A production-ready MCP (Model Context Protocol) server that provides semantic, developer-friendly access to the Google Slides API.
+A production-ready MCP (Model Context Protocol) server that provides semantic, developer-friendly access to the Google Slides API. Available as both a Python package for local use and a Cloudflare Workers deployment for remote access.
 
 ## Features
 
 - **Full API Access**: Direct passthrough to all 47 Google Slides API request types via `batch_update`
 - **Semantic Positioning**: Human-friendly tools that abstract away EMU math and transform calculations
 - **Template Workflows**: Copy templates, replace placeholders with text or images
-- **OAuth 2.1 Support**: Per-request authentication for multi-user scenarios
-- **Built with FastMCP**: Clean, maintainable Python code with modern async patterns
+- **OAuth Support**: Per-user authentication for multi-user scenarios
+- **Two Deployment Options**:
+  - **Python (FastMCP)**: Local stdio transport for Claude Desktop/Code
+  - **Cloudflare Workers**: Remote SSE transport for Claude Mobile and web clients
 
-## Installation
+## Quick Start
 
-```bash
-pip install google-slides-mcp
+### Option 1: Cloudflare Workers (Remote)
+
+Connect Claude Desktop or Claude Mobile to the hosted server:
+
+```
+URL: https://google-slides-mcp.foray-consulting.workers.dev/sse
 ```
 
-Or install from source:
+No local installation required - just add as a custom connector and authenticate with your Google account.
+
+### Option 2: Python (Local)
 
 ```bash
-git clone https://github.com/forayconsulting/google-slides-mcp.git
-cd google-slides-mcp
-pip install -e ".[dev]"
-```
-
-## Configuration
-
-### Quick Start
-
-1. Create Google OAuth 2.0 credentials at [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Enable the Google Slides API and Google Drive API
-3. Copy `.env.example` to `.env` and fill in your credentials:
-
-```bash
-cp .env.example .env
-```
-
-Required environment variables:
-- `GOOGLE_CLIENT_ID`: Your OAuth 2.0 client ID
-- `GOOGLE_CLIENT_SECRET`: Your OAuth 2.0 client secret
-
-### Detailed Setup Guide
-
-For step-by-step instructions with screenshots, see the **[Google OAuth Setup Guide](docs/google-oauth-setup.md)**. This guide covers:
-
-- Creating a Google Cloud project
-- Enabling required APIs
-- Configuring the OAuth consent screen
-- Creating OAuth 2.0 credentials
-- Adding test users
-- Troubleshooting common issues
-
-## Usage
-
-### Local Development Setup
-
-For local development with stdio transport, you need to acquire OAuth tokens first:
-
-```bash
-# 1. Install the package
+cd packages/python
 pip install -e ".[dev]"
 
-# 2. Set up your .env file with GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
-
-# 3. Run the token acquisition script
+# Acquire OAuth tokens
 python scripts/get_token.py
-```
 
-This will open a browser for OAuth consent and save credentials to `~/.google-slides-mcp/credentials.json`.
-
-### Running the Server
-
-```bash
-# stdio transport (for Claude Desktop/Claude Code)
+# Run the server
 google-slides-mcp --transport stdio
-
-# HTTP transport (for remote/multi-user)
-google-slides-mcp --transport streamable-http --port 8000
 ```
 
-### Claude Code Configuration
+## Repository Structure
 
-Add to your project's `.mcp.json` file for project-scoped configuration:
-
-```json
-{
-  "mcpServers": {
-    "google-slides": {
-      "type": "stdio",
-      "command": "/path/to/your/venv/bin/google-slides-mcp",
-      "args": ["--transport", "stdio"],
-      "env": {}
-    }
-  }
-}
+```
+google-slides-mcp/
+├── packages/
+│   ├── python/                 # Python FastMCP implementation
+│   │   ├── src/google_slides_mcp/
+│   │   ├── scripts/
+│   │   ├── tests/
+│   │   └── pyproject.toml
+│   │
+│   └── cloudflare/             # Cloudflare Workers implementation
+│       ├── src/
+│       │   ├── index.ts        # OAuthProvider entry point
+│       │   ├── mcp-agent.ts    # McpAgent Durable Object
+│       │   ├── api/            # Google API REST clients
+│       │   ├── auth/           # Google OAuth handler
+│       │   ├── tools/          # All 21 MCP tools
+│       │   └── utils/          # EMU, color, transform utilities
+│       ├── wrangler.toml
+│       └── package.json
+│
+├── docs/
+│   └── google-oauth-setup.md
+└── README.md
 ```
 
-Or use the CLI to add it:
-
-```bash
-claude mcp add google-slides --scope project -- /path/to/venv/bin/google-slides-mcp --transport stdio
-```
-
-### Claude Desktop Configuration
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "google-slides": {
-      "command": "google-slides-mcp",
-      "args": ["--transport", "stdio"],
-      "env": {
-        "GOOGLE_CLIENT_ID": "your-client-id",
-        "GOOGLE_CLIENT_SECRET": "your-client-secret"
-      }
-    }
-  }
-}
-```
-
-## Available Tools
+## Available Tools (21 total)
 
 ### Low-Level Tools
 - `batch_update` - Execute raw batchUpdate requests against Google Slides API
@@ -129,10 +72,10 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 - `get_page` - Get detailed information about a specific slide
 
 ### Template Tools
-- `copy_template` - Copy a Google Slides template to create a new presentation (supports PPTX → Google Slides conversion)
+- `copy_template` - Copy a Google Slides template to create a new presentation
 - `replace_placeholders` - Replace placeholder text throughout a presentation
 - `replace_placeholder_with_image` - Replace placeholder shapes with images
-- `search_presentations` - Search for presentations and templates by name in Google Drive
+- `search_presentations` - Search for presentations in Google Drive
 
 ### Positioning Tools
 - `position_element` - Position and size elements using inches and alignment
@@ -151,27 +94,95 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 - `export_thumbnail` - Generate slide thumbnails
 
 ### Content Tools
-- `update_slide_content` - Update slide text by placeholder type (TITLE, SUBTITLE, BODY) without needing element IDs
-- `update_presentation_content` - Bulk update text across multiple slides in one call
-- `apply_text_style` - Apply consistent styling to placeholder types across slides
+- `update_slide_content` - Update slide text by placeholder type
+- `update_presentation_content` - Bulk update text across multiple slides
+- `apply_text_style` - Apply consistent styling across slides
 
 ### Analysis Tools
-- `analyze_presentation` - Deep-dive style guide extraction (colors, fonts, placeholders, layout patterns)
+- `analyze_presentation` - Deep-dive style guide extraction
+
+## Python Package
+
+### Installation
+
+```bash
+cd packages/python
+pip install -e ".[dev]"
+```
+
+### Configuration
+
+1. Create Google OAuth 2.0 credentials at [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Enable the Google Slides API and Google Drive API
+3. Copy `.env.example` to `.env` and fill in your credentials
+
+For detailed setup instructions, see [docs/google-oauth-setup.md](docs/google-oauth-setup.md).
+
+### Claude Desktop Configuration
+
+```json
+{
+  "mcpServers": {
+    "google-slides": {
+      "command": "google-slides-mcp",
+      "args": ["--transport", "stdio"]
+    }
+  }
+}
+```
+
+## Cloudflare Workers Package
+
+### Deployment
+
+```bash
+cd packages/cloudflare
+npm install
+
+# Create KV namespace
+npx wrangler kv namespace create "OAUTH_KV"
+
+# Set secrets
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+npx wrangler secret put COOKIE_ENCRYPTION_KEY
+
+# Deploy
+npm run deploy
+```
+
+### Architecture
+
+- **OAuthProvider**: Handles MCP OAuth 2.1 flow with PKCE
+- **McpAgent (Durable Object)**: Maintains session state and WebSocket connections
+- **Google OAuth Handler**: Upstream authentication with Google
+- **Direct REST**: Uses `fetch()` instead of googleapis npm package
+
+### Local Development
+
+```bash
+npm run dev        # Start local server on port 8788
+npm run typecheck  # Run TypeScript checks
+```
 
 ## Development
 
+### Python
+
 ```bash
-# Install dev dependencies
-pip install -e ".[dev]"
+cd packages/python
+pytest                    # Run tests
+ruff check .              # Linting
+mypy src/                 # Type checking
+```
 
-# Run tests
-pytest
+### Cloudflare
 
-# Run linting
-ruff check .
-
-# Run type checking
-mypy src/
+```bash
+cd packages/cloudflare
+npm run typecheck         # TypeScript checks
+npm run dev               # Local development
+npm run deploy            # Deploy to Cloudflare
 ```
 
 ## Development History
