@@ -397,10 +397,149 @@ copy_template(
 **Branch:** `main`
 
 **Project Status:** Functional MCP server with:
-- **19 tools** spanning creation, positioning, templates, analysis, and low-level API access
+- **22 tools** spanning creation, positioning, templates, content, analysis, and low-level API access
+- **Semantic content updates:** Update slide text by placeholder type without element IDs
 - **Template discovery:** Search for presentations by name across Google Drive
 - **PPTX conversion:** Convert PowerPoint files to native Google Slides format
 - **Style guide extraction:** Analyze any presentation to understand structure, colors, fonts, and placeholder patterns
 - Dual authentication: HTTP transport (per-request OAuth) and stdio transport (stored credentials)
 - Semantic positioning using inches with automatic EMU conversion
 - Comprehensive development tooling and documentation
+
+---
+
+## Phase 4: Semantic Content Tools
+
+**Date:** December 3, 2025
+**Duration:** ~45 minutes
+**Context:** After creating a 10-slide demo presentation, analyzing friction points in the MCP workflow
+
+### The Problem
+
+While creating a presentation about the MCP server itself (meta-demo), several pain points became apparent:
+
+1. **Text replacement was extremely verbose:** Updating text on a single slide required:
+   - Call `get_page` to discover element IDs
+   - Parse response to find placeholder types (TITLE, SUBTITLE, BODY)
+   - Construct `deleteText` + `insertText` pairs for EVERY element
+   - Execute via `batch_update`
+
+   For 10 slides with 3-4 elements each, this meant ~40 individual operations.
+
+2. **Element ID discovery was tedious:** Before any text operation, manual parsing of `get_page` responses was required to map placeholder types to element IDs.
+
+3. **Styling required separate passes:** After replacing text, styling (font size, bold, color) required another `batch_update` with `updateTextStyle` requests.
+
+### The Solution
+
+Three new semantic content tools that abstract away element IDs and batch operations:
+
+#### 1. `update_slide_content` - Single Slide Update
+
+Replace text by placeholder type, not element ID:
+
+```python
+update_slide_content(
+    presentation_id="...",
+    slide_id="p3",
+    content={"TITLE": "Hello World", "BODY": ["Point 1", "Point 2"]}
+)
+# Returns: {"updated": {"TITLE": true, "BODY": true}, "not_found": []}
+```
+
+**Implementation:** Internally fetches the slide, finds all matching placeholders, builds deleteText+insertText pairs, executes as single batch.
+
+#### 2. `update_presentation_content` - Bulk Update
+
+Update text across multiple slides in one call:
+
+```python
+update_presentation_content(
+    presentation_id="...",
+    slides=[
+        {"slide_id": "p3", "TITLE": "Slide 1", "BODY": "Content"},
+        {"slide_id": "p4", "TITLE": "Slide 2"},
+        {"slide_id": "p5", "TITLE": "Slide 3", "SUBTITLE": "Sub"}
+    ]
+)
+# Returns: {"slides_updated": 3, "placeholders_updated": 5, "errors": []}
+```
+
+**Implementation:** Fetches full presentation once, builds all requests for all slides, executes as single batch.
+
+#### 3. `apply_text_style` - Bulk Styling
+
+Apply consistent styling to placeholder types across slides:
+
+```python
+apply_text_style(
+    presentation_id="...",
+    placeholder_type="TITLE",
+    font_size_pt=40,
+    bold=True,
+    color="#333333"
+)
+# Returns: {"elements_styled": 10, "slides_affected": ["p3", "p4", ...]}
+```
+
+**Implementation:** Finds all matching placeholders across specified (or all) slides, builds updateTextStyle and updateParagraphStyle requests, executes as single batch.
+
+### Impact
+
+**Before (demo deck creation):**
+```
+get_page(p3) → batch_update(8 requests)
+get_page(p13) → batch_update(4 requests)
+get_page(p17) → batch_update(8 requests)
+... (repeat for 10 slides)
+= ~20 tool calls, ~60 batch requests
+```
+
+**After:**
+```
+update_presentation_content(presentation_id, [...10 slides...])
+apply_text_style(presentation_id, "TITLE", font_size_pt=40, bold=True)
+= 2 tool calls
+```
+
+**Reduction:** ~90% fewer tool calls for typical presentation workflows.
+
+### Implementation Details
+
+**New file created:**
+- `src/google_slides_mcp/tools/content.py` - Content update tools with helper functions
+
+**Helper functions:**
+- `_find_placeholder_elements(slide, placeholder_type)` - Find elements by placeholder type
+- `_find_all_placeholders(slide)` - Get all placeholders on a slide
+- `_build_text_replacement_requests(object_id, new_text)` - Build deleteText+insertText pair
+- `_build_style_request(object_id, ...)` - Build updateTextStyle request with only specified fields
+- `_build_paragraph_style_request(object_id, alignment)` - Build updateParagraphStyle request
+
+**Files modified:**
+- `src/google_slides_mcp/tools/__init__.py` - Register content tools
+- `README.md` - Document new content tools section
+
+**New tools (total now 22):**
+| Tool | Purpose |
+|------|---------|
+| `update_slide_content` | Update slide text by placeholder type |
+| `update_presentation_content` | Bulk update text across multiple slides |
+| `apply_text_style` | Apply consistent styling to placeholder types |
+
+---
+
+## Timeline Summary (Updated)
+
+| Time | Event | Duration |
+|------|-------|----------|
+| ~17:00-18:00 (Dec 2) | Ideation & PRD (Claude mobile, inflight) | ~1 hour |
+| 21:21 | Repository created | — |
+| 21:39 | Full project structure implemented | 18 min |
+| 22:05 | OAuth documentation added | 26 min |
+| 22:52 | Bug fixes and stdio support | 47 min |
+| ~23:03-23:42 (Dec 2) | Template discovery & analysis features | ~40 min |
+| ~afternoon (Dec 3) | Semantic content tools | ~45 min |
+
+**Total implementation time:** ~3 hours
+**Total project time (ideation to current state):** ~7 hours

@@ -150,6 +150,11 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 - `get_element_info` - Get element details in human-readable format
 - `export_thumbnail` - Generate slide thumbnails
 
+### Content Tools
+- `update_slide_content` - Update slide text by placeholder type (TITLE, SUBTITLE, BODY) without needing element IDs
+- `update_presentation_content` - Bulk update text across multiple slides in one call
+- `apply_text_style` - Apply consistent styling to placeholder types across slides
+
 ### Analysis Tools
 - `analyze_presentation` - Deep-dive style guide extraction (colors, fonts, placeholders, layout patterns)
 
