@@ -6,8 +6,10 @@ replacing placeholder text and images.
 
 from typing import TYPE_CHECKING, Literal
 
+from fastmcp import Context
+
 if TYPE_CHECKING:
-    from fastmcp import Context, FastMCP
+    from fastmcp import FastMCP
 
 
 def register_template_tools(mcp: "FastMCP") -> None:
@@ -19,10 +21,10 @@ def register_template_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def copy_template(
+        ctx: Context,
         template_id: str,
         new_name: str,
         destination_folder_id: str | None = None,
-        ctx: "Context",
     ) -> dict:
         """Copy a Google Slides template to create a new presentation.
 
@@ -56,9 +58,9 @@ def register_template_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def replace_placeholders(
+        ctx: Context,
         presentation_id: str,
         replacements: dict[str, str],
-        ctx: "Context",
     ) -> dict:
         """Replace placeholder text throughout a presentation.
 
@@ -104,11 +106,11 @@ def register_template_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def replace_placeholder_with_image(
+        ctx: Context,
         presentation_id: str,
         placeholder_text: str,
         image_url: str,
         replace_method: Literal["CENTER_INSIDE", "CENTER_CROP"] = "CENTER_INSIDE",
-        ctx: "Context",
     ) -> dict:
         """Replace all shapes containing placeholder text with an image.
 

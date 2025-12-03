@@ -6,8 +6,10 @@ exporting thumbnails.
 
 from typing import TYPE_CHECKING, Literal
 
+from fastmcp import Context
+
 if TYPE_CHECKING:
-    from fastmcp import Context, FastMCP
+    from fastmcp import FastMCP
 
 
 def register_utility_tools(mcp: "FastMCP") -> None:
@@ -19,8 +21,8 @@ def register_utility_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def list_slides(
+        ctx: Context,
         presentation_id: str,
-        ctx: "Context",
     ) -> list[dict]:
         """List all slides with their IDs, titles, and element counts.
 
@@ -76,9 +78,9 @@ def register_utility_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def get_element_info(
+        ctx: Context,
         presentation_id: str,
         element_id: str,
-        ctx: "Context",
     ) -> dict:
         """Get detailed information about a page element.
 
@@ -193,10 +195,10 @@ def register_utility_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def export_thumbnail(
+        ctx: Context,
         presentation_id: str,
         slide_id: str,
         mime_type: Literal["PNG", "JPEG"] = "PNG",
-        ctx: "Context",
     ) -> dict:
         """Generate a thumbnail image of a slide.
 
@@ -231,7 +233,7 @@ def register_utility_tools(mcp: "FastMCP") -> None:
             .getThumbnail(
                 presentationId=presentation_id,
                 pageObjectId=slide_id,
-                thumbnailProperties_mimeType=f"image/{mime_type.lower()}",
+                thumbnailProperties_mimeType=mime_type,
             )
             .execute()
         )

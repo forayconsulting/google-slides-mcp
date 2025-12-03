@@ -168,11 +168,15 @@ def build_size(width_emu: int, height_emu: int) -> dict:
 def extract_element_bounds(page_element: dict) -> tuple[int, int, int, int]:
     """Extract position and size from a page element's transform.
 
+    The actual rendered size is the intrinsic size multiplied by the scale
+    factors from the transform matrix.
+
     Args:
         page_element: A pageElement object from Google Slides API
 
     Returns:
-        Tuple of (x, y, width, height) in EMU
+        Tuple of (x, y, width, height) in EMU where width/height are the
+        actual rendered dimensions (intrinsic size * scale)
 
     Raises:
         ValueError: If the element doesn't have transform or size information
@@ -185,7 +189,17 @@ def extract_element_bounds(page_element: dict) -> tuple[int, int, int, int]:
 
     x = int(transform.get("translateX", 0))
     y = int(transform.get("translateY", 0))
-    width = int(size.get("width", {}).get("magnitude", 0))
-    height = int(size.get("height", {}).get("magnitude", 0))
+
+    # Intrinsic size from the size object
+    intrinsic_width = size.get("width", {}).get("magnitude", 0)
+    intrinsic_height = size.get("height", {}).get("magnitude", 0)
+
+    # Scale factors from the transform (default to 1.0 if not present)
+    scale_x = transform.get("scaleX", 1.0)
+    scale_y = transform.get("scaleY", 1.0)
+
+    # Actual rendered size = intrinsic size * scale
+    width = int(intrinsic_width * abs(scale_x))
+    height = int(intrinsic_height * abs(scale_y))
 
     return x, y, width, height

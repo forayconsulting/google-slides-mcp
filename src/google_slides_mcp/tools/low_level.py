@@ -6,8 +6,10 @@ who need full control over their presentations.
 
 from typing import TYPE_CHECKING
 
+from fastmcp import Context
+
 if TYPE_CHECKING:
-    from fastmcp import Context, FastMCP
+    from fastmcp import FastMCP
 
 
 def register_low_level_tools(mcp: "FastMCP") -> None:
@@ -19,9 +21,9 @@ def register_low_level_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def batch_update(
+        ctx: Context,
         presentation_id: str,
         requests: list[dict],
-        ctx: "Context",
     ) -> dict:
         """Execute raw batchUpdate requests against Google Slides API.
 
@@ -58,9 +60,9 @@ def register_low_level_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def get_presentation(
+        ctx: Context,
         presentation_id: str,
         fields: str | None = None,
-        ctx: "Context",
     ) -> dict:
         """Retrieve presentation metadata, slides, and elements.
 
@@ -89,9 +91,9 @@ def register_low_level_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def get_page(
+        ctx: Context,
         presentation_id: str,
         page_id: str,
-        ctx: "Context",
     ) -> dict:
         """Get detailed information about a specific slide/page.
 

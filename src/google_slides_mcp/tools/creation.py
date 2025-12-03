@@ -7,8 +7,10 @@ intuitive parameters using inches instead of EMUs.
 from typing import TYPE_CHECKING, Literal
 import uuid
 
+from fastmcp import Context
+
 if TYPE_CHECKING:
-    from fastmcp import Context, FastMCP
+    from fastmcp import FastMCP
 
 
 # Predefined slide layouts
@@ -35,10 +37,10 @@ def register_creation_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def create_slide(
+        ctx: Context,
         presentation_id: str,
         layout: LAYOUT_TYPES = "BLANK",
         insertion_index: int | None = None,
-        ctx: "Context",
     ) -> dict:
         """Create a new slide with the specified layout.
 
@@ -104,6 +106,7 @@ def register_creation_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def add_text_box(
+        ctx: Context,
         presentation_id: str,
         slide_id: str,
         text: str,
@@ -117,7 +120,6 @@ def register_creation_tools(mcp: "FastMCP") -> None:
         italic: bool = False,
         color: str = "#000000",
         alignment: Literal["LEFT", "CENTER", "RIGHT"] = "LEFT",
-        ctx: "Context",
     ) -> dict:
         """Add a text box with styling to a slide.
 
@@ -217,6 +219,7 @@ def register_creation_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def add_image(
+        ctx: Context,
         presentation_id: str,
         slide_id: str,
         image_url: str,
@@ -226,7 +229,6 @@ def register_creation_tools(mcp: "FastMCP") -> None:
         height: float | None = None,
         horizontal_align: Literal["left", "center", "right"] | None = None,
         vertical_align: Literal["top", "center", "bottom"] | None = None,
-        ctx: "Context",
     ) -> dict:
         """Add an image to a slide from a URL.
 
@@ -313,6 +315,7 @@ def register_creation_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def add_shape(
+        ctx: Context,
         presentation_id: str,
         slide_id: str,
         shape_type: str,
@@ -323,7 +326,6 @@ def register_creation_tools(mcp: "FastMCP") -> None:
         fill_color: str | None = None,
         outline_color: str | None = "#000000",
         outline_weight: float = 1.0,
-        ctx: "Context",
     ) -> dict:
         """Add a shape to a slide.
 

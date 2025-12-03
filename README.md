@@ -53,14 +53,53 @@ For step-by-step instructions with screenshots, see the **[Google OAuth Setup Gu
 
 ## Usage
 
+### Local Development Setup
+
+For local development with stdio transport, you need to acquire OAuth tokens first:
+
+```bash
+# 1. Install the package
+pip install -e ".[dev]"
+
+# 2. Set up your .env file with GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+
+# 3. Run the token acquisition script
+python scripts/get_token.py
+```
+
+This will open a browser for OAuth consent and save credentials to `~/.google-slides-mcp/credentials.json`.
+
 ### Running the Server
 
 ```bash
-# stdio transport (for Claude Desktop)
+# stdio transport (for Claude Desktop/Claude Code)
 google-slides-mcp --transport stdio
 
 # HTTP transport (for remote/multi-user)
 google-slides-mcp --transport streamable-http --port 8000
+```
+
+### Claude Code Configuration
+
+Add to your project's `.mcp.json` file for project-scoped configuration:
+
+```json
+{
+  "mcpServers": {
+    "google-slides": {
+      "type": "stdio",
+      "command": "/path/to/your/venv/bin/google-slides-mcp",
+      "args": ["--transport", "stdio"],
+      "env": {}
+    }
+  }
+}
+```
+
+Or use the CLI to add it:
+
+```bash
+claude mcp add google-slides --scope project -- /path/to/venv/bin/google-slides-mcp --transport stdio
 ```
 
 ### Claude Desktop Configuration

@@ -6,8 +6,10 @@ intuitive positioning using inches and alignment keywords.
 
 from typing import TYPE_CHECKING, Literal
 
+from fastmcp import Context
+
 if TYPE_CHECKING:
-    from fastmcp import Context, FastMCP
+    from fastmcp import FastMCP
 
 
 def register_positioning_tools(mcp: "FastMCP") -> None:
@@ -19,6 +21,7 @@ def register_positioning_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def position_element(
+        ctx: Context,
         presentation_id: str,
         element_id: str,
         x: float | None = None,
@@ -27,7 +30,6 @@ def register_positioning_tools(mcp: "FastMCP") -> None:
         height: float | None = None,
         horizontal_align: Literal["left", "center", "right"] | None = None,
         vertical_align: Literal["top", "center", "bottom"] | None = None,
-        ctx: "Context",
     ) -> dict:
         """Position and size an element using inches and alignment.
 
@@ -169,11 +171,11 @@ def register_positioning_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def distribute_elements(
+        ctx: Context,
         presentation_id: str,
         element_ids: list[str],
         direction: Literal["horizontal", "vertical"],
         spacing: float | Literal["even"] = "even",
-        ctx: "Context",
     ) -> dict:
         """Distribute elements evenly across the slide.
 
@@ -304,11 +306,11 @@ def register_positioning_tools(mcp: "FastMCP") -> None:
 
     @mcp.tool()
     async def align_elements(
+        ctx: Context,
         presentation_id: str,
         element_ids: list[str],
         alignment: Literal["left", "center", "right", "top", "middle", "bottom"],
         reference: Literal["first", "last", "slide"] = "first",
-        ctx: "Context",
     ) -> dict:
         """Align multiple elements to each other or to the slide.
 
