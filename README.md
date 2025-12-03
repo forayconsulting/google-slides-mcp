@@ -26,6 +26,8 @@ pip install -e ".[dev]"
 
 ## Configuration
 
+### Quick Start
+
 1. Create Google OAuth 2.0 credentials at [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 2. Enable the Google Slides API and Google Drive API
 3. Copy `.env.example` to `.env` and fill in your credentials:
@@ -37,6 +39,17 @@ cp .env.example .env
 Required environment variables:
 - `GOOGLE_CLIENT_ID`: Your OAuth 2.0 client ID
 - `GOOGLE_CLIENT_SECRET`: Your OAuth 2.0 client secret
+
+### Detailed Setup Guide
+
+For step-by-step instructions with screenshots, see the **[Google OAuth Setup Guide](docs/google-oauth-setup.md)**. This guide covers:
+
+- Creating a Google Cloud project
+- Enabling required APIs
+- Configuring the OAuth consent screen
+- Creating OAuth 2.0 credentials
+- Adding test users
+- Troubleshooting common issues
 
 ## Usage
 
