@@ -165,6 +165,10 @@ ruff check .
 mypy src/
 ```
 
+## Development History
+
+For a detailed chronology of how this project was conceived and built—from initial ideation to working implementation—see [development_history.md](development_history.md).
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
