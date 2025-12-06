@@ -22,7 +22,9 @@ Connect Claude Desktop or Claude Mobile to the hosted server:
 URL: https://google-slides-mcp.foray-consulting.workers.dev/sse
 ```
 
-No local installation required - just add as a custom connector and authenticate with your Google account.
+No local installation required - just add as a custom connector and authenticate with your Google account. The hosted server is publicly accessible to any Google user.
+
+> **Note:** On first authentication, you'll see a "This app isn't verified" warning from Google. Click **Advanced** → **Go to Google Slides MCP (unsafe)** to proceed. This is normal for apps that haven't completed Google's verification process.
 
 ### Option 2: Python (Local)
 

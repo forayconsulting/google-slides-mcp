@@ -2,6 +2,10 @@
 
 This guide walks you through setting up Google OAuth 2.0 credentials for the Google Slides MCP Server. Follow each step carefully.
 
+> **Using the hosted version?** If you're connecting to the hosted Cloudflare Workers server at `https://google-slides-mcp.foray-consulting.workers.dev/sse`, you don't need to follow this guide. Just connect and authenticate with your Google account. You'll see an "unverified app" warning - click **Advanced** → **Go to Google Slides MCP (unsafe)** to proceed.
+
+This guide is for **self-hosting** the Python package or deploying your own Cloudflare Workers instance.
+
 ## Prerequisites
 
 - A Google account
@@ -99,9 +103,9 @@ Now create the actual credentials your application will use.
 
 ---
 
-## Step 5: Add Test Users
+## Step 5: Add Test Users (Testing Mode Only)
 
-Since your app is in "testing" mode, only designated test users can authenticate.
+If your app is in "testing" mode, only designated test users can authenticate.
 
 1. In the left sidebar, click **"Audience"**
 2. Scroll down to the **"Test users"** section
@@ -110,6 +114,8 @@ Since your app is in "testing" mode, only designated test users can authenticate
 5. Click **"Save"**
 
 You can add up to 100 test users while in testing mode.
+
+> **Tip:** If you want any Google user to authenticate (not just test users), you can publish your app to production. See the "Publishing Your App" section below.
 
 ---
 
@@ -155,7 +161,7 @@ Before using the MCP server, verify that you have:
 - [ ] Enabled the **Google Drive API**
 - [ ] Configured the **OAuth consent screen**
 - [ ] Created **OAuth 2.0 Desktop client credentials**
-- [ ] Added yourself as a **test user**
+- [ ] Added yourself as a **test user** (or published your app)
 - [ ] Saved credentials to your `.env` file
 
 ---
@@ -189,23 +195,39 @@ Your Client ID or Client Secret is incorrect.
 
 ### "This app isn't verified"
 
-This warning appears because your app is in testing mode.
+This warning appears for apps that haven't completed Google's verification process. This includes:
+- Apps in testing mode
+- Apps published to production but not yet verified
 
-**Solution**: Click **"Continue"** (you may need to click "Advanced" first). This is expected for apps in testing mode.
+**Solution**: Click **"Advanced"** → **"Go to [App Name] (unsafe)"** to proceed. This is expected behavior and safe for apps you trust.
 
 ---
 
-## Publishing Your App (Optional)
+## Publishing Your App
 
-If you want to use the MCP server with accounts other than your test users, you'll need to publish your app:
+If you want any Google user to authenticate (not just test users), you can publish your app:
 
 1. Go to **"Audience"** in the left sidebar
 2. Click **"Publish app"**
-3. Follow the verification process
+3. Your app will immediately be accessible to any Google user
 
-Note: Publishing requires verification by Google, which may take several days and requires additional information like a privacy policy.
+### The "Unverified App" Warning
 
-For personal use, staying in "testing" mode with designated test users is simpler.
+After publishing, users will see a warning: "This app isn't verified". This is normal for apps that haven't completed Google's verification process. Users can proceed by clicking:
+- **Advanced** → **Go to [App Name] (unsafe)**
+
+For developer tools and MCP servers used by technical users, this warning is generally acceptable.
+
+### Full Verification (Optional)
+
+To remove the "unverified app" warning entirely, you can complete Google's verification process:
+
+1. Provide a privacy policy URL
+2. Provide an app homepage URL
+3. Explain why you need each OAuth scope
+4. Wait for Google's review (days to weeks)
+
+For personal use or small teams, the unverified warning is usually fine to click through.
 
 ---
 

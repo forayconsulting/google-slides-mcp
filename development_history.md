@@ -707,3 +707,106 @@ npm run deploy
 - Full Google Slides API access via batch_update
 - Template discovery and analysis
 - Per-user Google OAuth
+
+---
+
+## Phase 6: MCP Prompts, Token Refresh & Public OAuth
+
+**Date:** December 5, 2025
+**Duration:** ~2 hours
+**Context:** Adding semantic routing prompts, fixing token expiration, and opening access to all users
+
+### MCP Prompts Added
+
+Added 7 MCP prompts to both Python and Cloudflare implementations to provide semantic routing guidance:
+
+**Workflow Prompts (4):**
+- `create_presentation_from_template` - Template-based deck creation workflow
+- `update_existing_presentation` - Guide for modifying existing presentations
+- `build_presentation_from_scratch` - Create presentations without templates
+- `analyze_and_replicate_style` - Extract and apply brand style guides
+
+**Discovery Prompts (3):**
+- `get_started` - Introduction to tool landscape and abstraction levels
+- `tool_reference` - Detailed tool reference by category with filtering
+- `troubleshooting` - Common issues and solutions with filtering
+
+### TokenManager for Long-Running Sessions
+
+Added automatic OAuth token refresh for the Cloudflare Workers implementation:
+
+**Problem:** Access tokens expire after 1 hour. Long-running sessions would fail silently when tokens expired.
+
+**Solution:** Created `TokenManager` class that:
+- Tracks token expiration time
+- Refreshes tokens 5 minutes before expiration
+- Handles concurrent refresh requests safely (single refresh in flight)
+- Used by both `SlidesClient` and `DriveClient`
+
+### Enhanced Tool Descriptions
+
+Updated tool descriptions across both packages to include:
+- "PREFER INSTEAD" recommendations directing users to semantic tools
+- "WORKFLOW TIP" suggestions for optimal tool sequencing
+- Unit system clarification (inches vs EMU) in positioning tools
+
+### OAuth Published to Production
+
+**The change:** Published the Google OAuth app from "Testing" mode to "In production".
+
+**Before:**
+- Only manually-added test users (up to 100) could authenticate
+- Required adding each user's email to the test users list
+
+**After:**
+- Any Google user can authenticate
+- No test user list required
+- Users see "unverified app" warning but can proceed via Advanced → Go to app
+
+**Impact:** The hosted Cloudflare Workers server is now publicly accessible to anyone with a Google account.
+
+---
+
+## Timeline Summary (Updated)
+
+| Time | Event | Duration |
+|------|-------|----------|
+| ~17:00-18:00 (Dec 2) | Ideation & PRD (Claude mobile, inflight) | ~1 hour |
+| 21:21 | Repository created | — |
+| 21:39 | Full project structure implemented | 18 min |
+| 22:05 | OAuth documentation added | 26 min |
+| 22:52 | Bug fixes and stdio support | 47 min |
+| ~23:03-23:42 (Dec 2) | Template discovery & analysis features | ~40 min |
+| ~afternoon (Dec 3) | Semantic content tools | ~45 min |
+| ~evening (Dec 3) | Cloudflare Workers port & monorepo | ~4 hours |
+| ~evening (Dec 5) | MCP prompts, token refresh, OAuth publish | ~2 hours |
+
+**Total implementation time:** ~9 hours
+**Total project time (ideation to current state):** ~13 hours
+
+---
+
+## Current State (Updated)
+
+**Branch:** `main`
+
+**Project Status:** Dual-deployment MCP server with public access:
+
+**Python Package (packages/python/):**
+- FastMCP 2.x implementation
+- Stdio transport for Claude Desktop/Code
+- 22 tools + 7 prompts
+
+**Cloudflare Workers (packages/cloudflare/):**
+- agents-sdk OAuthProvider implementation
+- SSE transport for Claude Mobile/web
+- 21 tools + 7 prompts
+- Automatic token refresh for long sessions
+- **Publicly accessible** (no test user list required)
+- Live at: https://google-slides-mcp.foray-consulting.workers.dev/sse
+
+**Shared:**
+- Semantic positioning using inches
+- Full Google Slides API access via batch_update
+- Template discovery and analysis
+- Per-user Google OAuth (now public)
