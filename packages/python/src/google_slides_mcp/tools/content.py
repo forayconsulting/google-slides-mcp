@@ -187,6 +187,9 @@ def register_content_tools(mcp: "FastMCP") -> None:
         No element IDs needed - automatically finds placeholders and replaces text.
         BODY can be a string or list (joined with newlines).
 
+        NOTE: For multiple slides, PREFER update_presentation_content
+        (single API call, more efficient).
+
         Args:
             presentation_id: The presentation ID
             slide_id: The slide to update

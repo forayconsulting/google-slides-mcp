@@ -8,24 +8,23 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SlidesClient } from "../api/slides-client.js";
-import type { Props } from "../types.js";
+import type { TokenManager } from "../api/token-manager.js";
 
 /**
  * Register low-level API tools with the MCP server.
  */
 export function registerLowLevelTools(
   server: McpServer,
-  _env: Env,
-  props: Props
+  tokenManager: TokenManager
 ): void {
-  const client = new SlidesClient({ accessToken: props.accessToken });
+  const client = new SlidesClient(tokenManager);
 
   /**
    * batch_update - Execute raw batchUpdate requests
    */
   server.tool(
     "batch_update",
-    "Execute raw batchUpdate requests against Google Slides API. Use this for full control when semantic tools don't cover your use case. All 47 Google Slides API request types are supported.",
+    "Execute raw batchUpdate requests against Google Slides API. WHEN TO USE: Only when semantic tools don't cover your use case - e.g., deleting slides (deleteObject), table operations, animations, grouping elements. PREFER INSTEAD: replace_placeholders for text replacement, update_slide_content for placeholder updates, position_element for moving/resizing. All 47 API request types supported.",
     {
       presentation_id: z.string().describe("The ID of the presentation to modify"),
       requests: z.array(z.record(z.unknown())).describe("Array of request objects (createSlide, insertText, updatePageElementTransform, etc.)"),
@@ -60,7 +59,7 @@ export function registerLowLevelTools(
    */
   server.tool(
     "get_presentation",
-    "Retrieve presentation metadata, slides, and elements. Returns full presentation object or requested fields including presentationId, pageSize, slides, title, masters, and layouts.",
+    "Retrieve raw presentation metadata, slides, and elements. Returns EMU units and raw API structures. PREFER INSTEAD: list_slides for slide overview, analyze_presentation for style/structure analysis, get_element_info for element details in inches.",
     {
       presentation_id: z.string().describe("The ID of the presentation to retrieve"),
       fields: z.string().optional().describe("Optional field mask for partial response (e.g., 'slides.pageElements' to get only elements)"),
@@ -95,7 +94,7 @@ export function registerLowLevelTools(
    */
   server.tool(
     "get_page",
-    "Get detailed information about a specific slide/page. Returns page elements with their current transforms, sizes, and properties including objectId, pageType, pageElements, slideProperties, and pageProperties.",
+    "Get raw slide/page data with transforms and properties in EMU units. PREFER INSTEAD: get_element_info for element details in inches, list_slides for slide overview. Used internally by update_slide_content.",
     {
       presentation_id: z.string().describe("The ID of the presentation"),
       page_id: z.string().describe("The object ID of the page/slide to retrieve"),

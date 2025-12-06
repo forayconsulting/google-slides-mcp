@@ -9,7 +9,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SlidesClient } from "../api/slides-client.js";
 import { DriveClient } from "../api/drive-client.js";
-import type { Props } from "../types.js";
+import type { TokenManager } from "../api/token-manager.js";
 
 const MIME_GOOGLE_SLIDES = "application/vnd.google-apps.presentation";
 const MIME_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
@@ -19,18 +19,17 @@ const MIME_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.
  */
 export function registerTemplateTools(
   server: McpServer,
-  _env: Env,
-  props: Props
+  tokenManager: TokenManager
 ): void {
-  const slidesClient = new SlidesClient({ accessToken: props.accessToken });
-  const driveClient = new DriveClient({ accessToken: props.accessToken });
+  const slidesClient = new SlidesClient(tokenManager);
+  const driveClient = new DriveClient(tokenManager);
 
   /**
    * copy_template - Copy a Google Slides template to create a new presentation
    */
   server.tool(
     "copy_template",
-    "Copy a Google Slides template to create a new presentation. Can also convert PowerPoint (.pptx) files to native Google Slides format.",
+    "Copy a Google Slides template to create a new presentation. WORKFLOW TIP: After copying, use analyze_presentation to understand the template structure, then replace_placeholders or update_presentation_content to populate content. Can also convert PowerPoint (.pptx) files to native Google Slides format.",
     {
       template_id: z.string().describe("Source presentation ID to copy"),
       new_name: z.string().describe("Name for the new presentation"),
@@ -186,7 +185,7 @@ export function registerTemplateTools(
    */
   server.tool(
     "search_presentations",
-    "Search for presentations in Google Drive. Use this to discover presentation templates or find existing presentations by name.",
+    "Search for presentations in Google Drive. TYPICAL WORKFLOW: search_presentations -> copy_template -> analyze_presentation -> replace_placeholders. Use to discover templates or find existing presentations by name.",
     {
       query: z.string().optional().describe("Search term to match against file names"),
       folder_id: z.string().optional().describe("Limit search to a specific folder ID"),

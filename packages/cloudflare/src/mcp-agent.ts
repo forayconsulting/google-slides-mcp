@@ -8,6 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpAgent } from "agents/mcp";
 import type { Props } from "./types.js";
 import { registerAllTools } from "./tools/index.js";
+import { registerAllPrompts } from "./prompts/index.js";
 
 /**
  * Google Slides MCP Server agent.
@@ -32,5 +33,6 @@ export class GoogleSlidesMCP extends McpAgent<Env, Record<string, never>, Props>
       throw new Error("User props not available - OAuth may not have completed");
     }
     registerAllTools(this.server, this.env, this.props);
+    registerAllPrompts(this.server);
   }
 }

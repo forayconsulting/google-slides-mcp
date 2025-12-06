@@ -7,7 +7,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SlidesClient } from "../api/slides-client.js";
-import type { Props } from "../types.js";
+import type { TokenManager } from "../api/token-manager.js";
 import { extractElementBounds } from "../utils/transforms.js";
 import { emuToInches } from "../utils/units.js";
 
@@ -16,10 +16,9 @@ import { emuToInches } from "../utils/units.js";
  */
 export function registerUtilityTools(
   server: McpServer,
-  _env: Env,
-  props: Props
+  tokenManager: TokenManager
 ): void {
-  const client = new SlidesClient({ accessToken: props.accessToken });
+  const client = new SlidesClient(tokenManager);
 
   /**
    * list_slides - List all slides with their IDs, titles, and element counts

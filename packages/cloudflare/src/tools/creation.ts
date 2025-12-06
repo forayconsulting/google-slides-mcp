@@ -8,7 +8,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SlidesClient } from "../api/slides-client.js";
-import type { Props } from "../types.js";
+import type { TokenManager } from "../api/token-manager.js";
 import { inchesToEmu } from "../utils/units.js";
 import { hexToRgb } from "../utils/colors.js";
 import { SLIDE_SIZES, calculateAlignmentPosition } from "../utils/transforms.js";
@@ -22,10 +22,9 @@ function generateId(prefix: string): string {
  */
 export function registerCreationTools(
   server: McpServer,
-  _env: Env,
-  props: Props
+  tokenManager: TokenManager
 ): void {
-  const client = new SlidesClient({ accessToken: props.accessToken });
+  const client = new SlidesClient(tokenManager);
 
   /**
    * create_slide - Create a new slide with the specified layout

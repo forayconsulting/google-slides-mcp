@@ -23,9 +23,10 @@ const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
 
 // Scopes required for Google Slides and Drive access
+// Using 'drive' scope instead of 'drive.file' to allow searching existing presentations
 const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/presentations",
-  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/drive",
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",
 ].join(" ");

@@ -44,6 +44,8 @@ google-slides-mcp/
 ├── packages/
 │   ├── python/                 # Python FastMCP implementation
 │   │   ├── src/google_slides_mcp/
+│   │   │   ├── tools/          # All 22 MCP tools
+│   │   │   └── prompts/        # Workflow and discovery prompts
 │   │   ├── scripts/
 │   │   ├── tests/
 │   │   └── pyproject.toml
@@ -52,9 +54,10 @@ google-slides-mcp/
 │       ├── src/
 │       │   ├── index.ts        # OAuthProvider entry point
 │       │   ├── mcp-agent.ts    # McpAgent Durable Object
-│       │   ├── api/            # Google API REST clients
+│       │   ├── api/            # Google API REST clients + TokenManager
 │       │   ├── auth/           # Google OAuth handler
 │       │   ├── tools/          # All 21 MCP tools
+│       │   ├── prompts/        # Workflow and discovery prompts
 │       │   └── utils/          # EMU, color, transform utilities
 │       ├── wrangler.toml
 │       └── package.json
@@ -100,6 +103,21 @@ google-slides-mcp/
 
 ### Analysis Tools
 - `analyze_presentation` - Deep-dive style guide extraction
+
+## MCP Prompts (7 total)
+
+The server includes semantic routing prompts that guide LLMs through optimal tool usage:
+
+### Workflow Prompts
+- `create_presentation_from_template` - Complete template-based deck creation workflow
+- `update_existing_presentation` - Guide for modifying an existing presentation
+- `build_presentation_from_scratch` - Create presentations without templates
+- `analyze_and_replicate_style` - Extract and apply style guides
+
+### Discovery Prompts
+- `get_started` - Introduction to tool landscape and abstraction levels
+- `tool_reference` - Detailed tool reference by category
+- `troubleshooting` - Common issues and solutions
 
 ## Python Package
 

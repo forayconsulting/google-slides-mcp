@@ -6,17 +6,35 @@
  */
 
 import type { TokenInfo, DriveFile, FileList } from "./types.js";
+import type { TokenManager } from "./token-manager.js";
 
 const DRIVE_API_BASE = "https://www.googleapis.com/drive/v3";
+
+/**
+ * Token provider can be a static token or a token manager.
+ */
+export type TokenProvider = TokenInfo | TokenManager;
 
 /**
  * Client for Google Drive API operations.
  */
 export class DriveClient {
-  private accessToken: string;
+  private tokenProvider: TokenProvider;
 
-  constructor(tokenInfo: TokenInfo) {
-    this.accessToken = tokenInfo.accessToken;
+  constructor(tokenProvider: TokenProvider) {
+    this.tokenProvider = tokenProvider;
+  }
+
+  /**
+   * Get the current access token, refreshing if necessary.
+   */
+  private async getAccessToken(): Promise<string> {
+    if ("getAccessToken" in this.tokenProvider) {
+      // It's a TokenManager
+      return this.tokenProvider.getAccessToken();
+    }
+    // It's a static TokenInfo
+    return this.tokenProvider.accessToken;
   }
 
   /**
@@ -27,11 +45,12 @@ export class DriveClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${DRIVE_API_BASE}${endpoint}`;
+    const accessToken = await this.getAccessToken();
 
     const response = await fetch(url, {
       ...options,
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
         ...options.headers,
       },
@@ -110,10 +129,11 @@ export class DriveClient {
    */
   async exportFile(fileId: string, mimeType: string): Promise<ArrayBuffer> {
     const url = `${DRIVE_API_BASE}/files/${fileId}/export?mimeType=${encodeURIComponent(mimeType)}`;
+    const accessToken = await this.getAccessToken();
 
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
     });
 

@@ -33,8 +33,9 @@ def register_positioning_tools(mcp: "FastMCP") -> None:
     ) -> dict:
         """Position and size an element using inches and alignment.
 
-        You can specify absolute coordinates OR alignment OR both.
-        Alignment is relative to the slide boundaries.
+        All positions/sizes in INCHES (EMU conversion handled internally).
+        Standard slide: 10" x 5.625". You can specify absolute coordinates
+        OR alignment OR both.
 
         Args:
             presentation_id: The presentation containing the element
@@ -48,11 +49,6 @@ def register_positioning_tools(mcp: "FastMCP") -> None:
 
         Returns:
             Updated element position and size in inches
-
-        Examples:
-            - Center horizontally: horizontal_align="center"
-            - Position at 2 inches from left: x=2.0
-            - Center on slide: horizontal_align="center", vertical_align="center"
         """
         from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
         from google_slides_mcp.services.slides_service import SlidesService
@@ -179,6 +175,8 @@ def register_positioning_tools(mcp: "FastMCP") -> None:
     ) -> dict:
         """Distribute elements evenly across the slide.
 
+        All measurements in INCHES (EMU conversion handled internally).
+
         Args:
             presentation_id: The presentation ID
             element_ids: Elements to distribute (order matters)
@@ -187,7 +185,7 @@ def register_positioning_tools(mcp: "FastMCP") -> None:
                 for equal distribution across the slide
 
         Returns:
-            Dictionary with new positions for each element
+            Dictionary with new positions for each element in inches
         """
         from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
         from google_slides_mcp.services.slides_service import SlidesService
@@ -314,6 +312,8 @@ def register_positioning_tools(mcp: "FastMCP") -> None:
     ) -> dict:
         """Align multiple elements to each other or to the slide.
 
+        Results returned in INCHES.
+
         Args:
             element_ids: Elements to align
             alignment: Edge or center to align:
@@ -325,7 +325,7 @@ def register_positioning_tools(mcp: "FastMCP") -> None:
                 - slide: Align to slide boundaries
 
         Returns:
-            Dictionary with new positions for each element
+            Dictionary with new positions for each element in inches
         """
         from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
         from google_slides_mcp.services.slides_service import SlidesService

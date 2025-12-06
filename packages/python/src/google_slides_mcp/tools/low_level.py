@@ -27,7 +27,15 @@ def register_low_level_tools(mcp: "FastMCP") -> None:
     ) -> dict:
         """Execute raw batchUpdate requests against Google Slides API.
 
-        Use this for full control when semantic tools don't cover your use case.
+        WHEN TO USE: Only when semantic tools don't cover your use case.
+        Common scenarios: deleting slides (deleteObject), table operations,
+        animations, grouping elements.
+
+        PREFER INSTEAD:
+        - replace_placeholders for text replacement
+        - update_slide_content for placeholder updates
+        - position_element for moving/resizing
+
         All 47 Google Slides API request types are supported.
 
         See: https://developers.google.com/slides/api/reference/rest/v1/presentations/batchUpdate
@@ -38,16 +46,7 @@ def register_low_level_tools(mcp: "FastMCP") -> None:
                 updatePageElementTransform, etc.)
 
         Returns:
-            batchUpdate response with replies for each request. The replies
-            array maps 1:1 with the requests array.
-
-        Example requests:
-            - CreateSlideRequest: Create a new slide
-            - InsertTextRequest: Add text to a shape
-            - UpdatePageElementTransformRequest: Move/resize elements
-            - ReplaceAllTextRequest: Find and replace text
-            - CreateShapeRequest: Add shapes
-            - CreateImageRequest: Insert images
+            batchUpdate response with replies for each request.
         """
         from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
         from google_slides_mcp.services.slides_service import SlidesService
@@ -64,7 +63,14 @@ def register_low_level_tools(mcp: "FastMCP") -> None:
         presentation_id: str,
         fields: str | None = None,
     ) -> dict:
-        """Retrieve presentation metadata, slides, and elements.
+        """Retrieve raw presentation metadata, slides, and elements.
+
+        Returns EMU units and raw API structures.
+
+        PREFER INSTEAD:
+        - list_slides for slide overview
+        - analyze_presentation for style/structure analysis
+        - get_element_info for element details in inches
 
         Args:
             presentation_id: The ID of the presentation to retrieve
@@ -72,13 +78,7 @@ def register_low_level_tools(mcp: "FastMCP") -> None:
                 (e.g., "slides.pageElements" to get only elements)
 
         Returns:
-            Full presentation object or requested fields including:
-            - presentationId: The presentation ID
-            - pageSize: Slide dimensions
-            - slides: Array of slide objects
-            - title: Presentation title
-            - masters: Master slide templates
-            - layouts: Available layouts
+            Full presentation object or requested fields.
         """
         from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
         from google_slides_mcp.services.slides_service import SlidesService
@@ -95,22 +95,20 @@ def register_low_level_tools(mcp: "FastMCP") -> None:
         presentation_id: str,
         page_id: str,
     ) -> dict:
-        """Get detailed information about a specific slide/page.
+        """Get raw slide/page data with transforms and properties.
 
-        Returns page elements with their current transforms, sizes,
-        and properties.
+        Returns EMU units. Used internally by update_slide_content.
+
+        PREFER INSTEAD:
+        - get_element_info for element details in inches
+        - list_slides for slide overview
 
         Args:
             presentation_id: The ID of the presentation
             page_id: The object ID of the page/slide to retrieve
 
         Returns:
-            Page object including:
-            - objectId: The page ID
-            - pageType: Type of page (SLIDE, MASTER, LAYOUT)
-            - pageElements: Array of elements on the page
-            - slideProperties: Slide-specific properties
-            - pageProperties: Page background, color scheme
+            Page object with elements, transforms, and properties.
         """
         from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
         from google_slides_mcp.services.slides_service import SlidesService

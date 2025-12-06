@@ -8,7 +8,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SlidesClient } from "../api/slides-client.js";
-import type { Props } from "../types.js";
+import type { TokenManager } from "../api/token-manager.js";
 import { inchesToEmu, emuToInches } from "../utils/units.js";
 import {
   SLIDE_SIZES,
@@ -23,17 +23,16 @@ import {
  */
 export function registerPositioningTools(
   server: McpServer,
-  _env: Env,
-  props: Props
+  tokenManager: TokenManager
 ): void {
-  const client = new SlidesClient({ accessToken: props.accessToken });
+  const client = new SlidesClient(tokenManager);
 
   /**
    * position_element - Position and size an element using inches and alignment
    */
   server.tool(
     "position_element",
-    "Position and size an element using inches and alignment. You can specify absolute coordinates OR alignment OR both. Alignment is relative to the slide boundaries.",
+    "Position and size an element using inches and alignment. All positions/sizes in INCHES (EMU conversion handled internally). Standard slide: 10\" x 5.625\". You can specify absolute coordinates OR alignment OR both.",
     {
       presentation_id: z.string().describe("The presentation containing the element"),
       element_id: z.string().describe("The page element to position"),
@@ -171,7 +170,7 @@ export function registerPositioningTools(
    */
   server.tool(
     "distribute_elements",
-    "Distribute elements evenly across the slide.",
+    "Distribute elements evenly across the slide. All measurements in INCHES (EMU conversion handled internally).",
     {
       presentation_id: z.string().describe("The presentation ID"),
       element_ids: z.array(z.string()).describe("Elements to distribute (order matters)"),
@@ -304,7 +303,7 @@ export function registerPositioningTools(
    */
   server.tool(
     "align_elements",
-    "Align multiple elements to each other or to the slide.",
+    "Align multiple elements to each other or to the slide. Results returned in INCHES.",
     {
       presentation_id: z.string().describe("The presentation ID"),
       element_ids: z.array(z.string()).describe("Elements to align"),

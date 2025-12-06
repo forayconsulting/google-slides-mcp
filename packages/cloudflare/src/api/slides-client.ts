@@ -13,17 +13,35 @@ import type {
   Thumbnail,
   Request,
 } from "./types.js";
+import type { TokenManager } from "./token-manager.js";
 
 const SLIDES_API_BASE = "https://slides.googleapis.com/v1";
+
+/**
+ * Token provider can be a static token or a token manager.
+ */
+export type TokenProvider = TokenInfo | TokenManager;
 
 /**
  * Client for Google Slides API operations.
  */
 export class SlidesClient {
-  private accessToken: string;
+  private tokenProvider: TokenProvider;
 
-  constructor(tokenInfo: TokenInfo) {
-    this.accessToken = tokenInfo.accessToken;
+  constructor(tokenProvider: TokenProvider) {
+    this.tokenProvider = tokenProvider;
+  }
+
+  /**
+   * Get the current access token, refreshing if necessary.
+   */
+  private async getAccessToken(): Promise<string> {
+    if ("getAccessToken" in this.tokenProvider) {
+      // It's a TokenManager
+      return this.tokenProvider.getAccessToken();
+    }
+    // It's a static TokenInfo
+    return this.tokenProvider.accessToken;
   }
 
   /**
@@ -34,11 +52,12 @@ export class SlidesClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${SLIDES_API_BASE}${endpoint}`;
+    const accessToken = await this.getAccessToken();
 
     const response = await fetch(url, {
       ...options,
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
         ...options.headers,
       },

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from fastmcp import FastMCP
 
 from google_slides_mcp.config import Settings, get_settings
+from google_slides_mcp.prompts import register_all_prompts
 from google_slides_mcp.tools import register_all_tools
 
 if TYPE_CHECKING:
@@ -78,6 +79,10 @@ def create_app(settings: Settings | None = None) -> FastMCP:
     # Register all tools
     register_all_tools(mcp)
     logger.info("All tools registered")
+
+    # Register all prompts
+    register_all_prompts(mcp)
+    logger.info("All prompts registered")
 
     return mcp
 

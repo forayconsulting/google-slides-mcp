@@ -8,7 +8,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SlidesClient } from "../api/slides-client.js";
-import type { Props } from "../types.js";
+import type { TokenManager } from "../api/token-manager.js";
 import type { Page } from "../api/types.js";
 import { hexToRgb } from "../utils/colors.js";
 
@@ -123,17 +123,16 @@ function buildParagraphStyleRequest(
  */
 export function registerContentTools(
   server: McpServer,
-  _env: Env,
-  props: Props
+  tokenManager: TokenManager
 ): void {
-  const client = new SlidesClient({ accessToken: props.accessToken });
+  const client = new SlidesClient(tokenManager);
 
   /**
    * update_slide_content - Update slide text by placeholder type
    */
   server.tool(
     "update_slide_content",
-    "Update slide text by placeholder type (TITLE, SUBTITLE, BODY). No element IDs needed - automatically finds placeholders and replaces text.",
+    "Update slide text by placeholder type (TITLE, SUBTITLE, BODY). No element IDs needed - automatically finds placeholders and replaces text. NOTE: For multiple slides, PREFER update_presentation_content (single API call, more efficient).",
     {
       presentation_id: z.string().describe("The presentation ID"),
       slide_id: z.string().describe("The slide to update"),

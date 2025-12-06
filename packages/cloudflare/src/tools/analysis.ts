@@ -8,7 +8,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SlidesClient } from "../api/slides-client.js";
-import type { Props } from "../types.js";
+import type { TokenManager } from "../api/token-manager.js";
 import type { Page, Presentation } from "../api/types.js";
 import { emuToInches } from "../utils/units.js";
 
@@ -316,10 +316,9 @@ function selectKeySlides(slidesInfo: SlideInfo[], maxCount: number): SlideInfo[]
  */
 export function registerAnalysisTools(
   server: McpServer,
-  _env: Env,
-  props: Props
+  tokenManager: TokenManager
 ): void {
-  const client = new SlidesClient({ accessToken: props.accessToken });
+  const client = new SlidesClient(tokenManager);
 
   /**
    * analyze_presentation - Deep-dive analysis of a presentation

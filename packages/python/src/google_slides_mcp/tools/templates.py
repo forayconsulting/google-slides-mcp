@@ -29,6 +29,10 @@ def register_template_tools(mcp: "FastMCP") -> None:
     ) -> dict:
         """Copy a Google Slides template to create a new presentation.
 
+        WORKFLOW TIP: After copying, use analyze_presentation to understand
+        the template structure, then replace_placeholders or
+        update_presentation_content to populate content.
+
         Can also convert PowerPoint (.pptx) files to native Google Slides format.
 
         Args:
@@ -173,9 +177,11 @@ def register_template_tools(mcp: "FastMCP") -> None:
     ) -> dict:
         """Search for presentations in Google Drive.
 
-        Use this to discover presentation templates or find existing
-        presentations by name. Returns Google Slides presentations and
-        PowerPoint files.
+        TYPICAL WORKFLOW: search_presentations -> copy_template ->
+        analyze_presentation -> replace_placeholders
+
+        Use to discover templates or find existing presentations by name.
+        Returns Google Slides presentations and PowerPoint files.
 
         Args:
             query: Search term to match against file names. If omitted,
