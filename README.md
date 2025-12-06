@@ -1,5 +1,7 @@
 # Google Slides MCP Server
 
+![Google Slides MCP Demo](docs/google-slides-mcp_compressed.gif)
+
 A production-ready MCP (Model Context Protocol) server that provides semantic, developer-friendly access to the Google Slides API. Available as both a Python package for local use and a Cloudflare Workers deployment for remote access.
 
 ## Features
