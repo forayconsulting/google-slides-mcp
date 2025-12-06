@@ -72,3 +72,6 @@ token.json
 # Node.js
 node_modules/
 .wrangler/
+
+# Claude Code
+CLAUDE.md

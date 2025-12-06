@@ -65,6 +65,7 @@ google-slides-mcp/
 │       └── package.json
 │
 ├── docs/
+│   ├── development_history.md
 │   └── google-oauth-setup.md
 └── README.md
 ```
@@ -207,7 +208,7 @@ npm run deploy            # Deploy to Cloudflare
 
 ## Development History
 
-For a detailed chronology of how this project was conceived and built—from initial ideation to working implementation—see [development_history.md](development_history.md).
+For a detailed chronology of how this project was conceived and built—from initial ideation to working implementation—see [docs/development_history.md](docs/development_history.md).
 
 ## License
 
