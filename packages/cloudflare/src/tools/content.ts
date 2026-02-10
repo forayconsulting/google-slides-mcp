@@ -233,14 +233,20 @@ export function registerContentTools(
    */
   server.tool(
     "update_presentation_content",
-    "Update text across multiple slides in one call. More efficient than calling update_slide_content multiple times.",
+    `Update text across multiple slides in one call. More efficient than calling update_slide_content multiple times.
+
+Each item in the slides array should have a slide_id plus placeholder type keys:
+  [{"slide_id": "p3", "TITLE": "Slide 1", "BODY": "Content"}, {"slide_id": "p4", "TITLE": "Slide 2"}]`,
     {
       presentation_id: z.string().describe("The presentation ID"),
       slides: z.array(z.record(z.unknown())).describe("List of dicts with slide_id and placeholder content"),
     },
     async ({ presentation_id, slides }) => {
       try {
-        const presentation = await client.getPresentation(presentation_id);
+        const presentation = await client.getPresentation(
+          presentation_id,
+          "slides(objectId,pageElements)"
+        );
 
         // Build a map of slide_id to slide data
         const slideMap = new Map<string, Page>();
@@ -268,8 +274,13 @@ export function registerContentTools(
 
           let slideHadUpdates = false;
 
-          for (const [key, newTextInput] of Object.entries(slideSpec)) {
-            if (key === "slide_id") continue;
+          // Support both flat {slide_id, TITLE: ...} and nested {slide_id, content: {TITLE: ...}}
+          let entries = Object.entries(slideSpec).filter(([k]) => k !== "slide_id");
+          if (entries.length === 1 && entries[0][0] === "content" && typeof entries[0][1] === "object" && entries[0][1] !== null && !Array.isArray(entries[0][1])) {
+            entries = Object.entries(entries[0][1] as Record<string, unknown>);
+          }
+
+          for (const [key, newTextInput] of entries) {
 
             const isArray = Array.isArray(newTextInput);
             // Handle list content
@@ -343,7 +354,10 @@ export function registerContentTools(
     },
     async ({ presentation_id, placeholder_type, slide_ids, font_size_pt, bold, italic, font_family, color, alignment }) => {
       try {
-        const presentation = await client.getPresentation(presentation_id);
+        const presentation = await client.getPresentation(
+          presentation_id,
+          "slides(objectId,pageElements)"
+        );
 
         const requests: Record<string, unknown>[] = [];
         let elementsStyled = 0;

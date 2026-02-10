@@ -46,26 +46,32 @@ export function registerCreationTools(
   /**
    * create_slide - Create a new slide with the specified layout
    */
+  const PREDEFINED_LAYOUTS = new Set([
+    "BLANK", "TITLE", "TITLE_AND_BODY", "TITLE_AND_TWO_COLUMNS",
+    "TITLE_ONLY", "SECTION_HEADER", "ONE_COLUMN_TEXT", "MAIN_POINT",
+    "BIG_NUMBER", "CAPTION_ONLY",
+  ]);
+
   server.tool(
     "create_slide",
-    "Create a new slide with the specified layout.",
+    `Create a new slide with the specified layout. Accepts either a predefined layout name (BLANK, TITLE, TITLE_AND_BODY, TITLE_AND_TWO_COLUMNS, TITLE_ONLY, SECTION_HEADER, ONE_COLUMN_TEXT, MAIN_POINT, BIG_NUMBER, CAPTION_ONLY) or a custom layout object ID from the presentation (use list_layouts to discover available layouts).`,
     {
       presentation_id: z.string().describe("The presentation to add the slide to"),
-      layout: z.enum([
-        "BLANK", "TITLE", "TITLE_AND_BODY", "TITLE_AND_TWO_COLUMNS",
-        "TITLE_ONLY", "SECTION_HEADER", "ONE_COLUMN_TEXT", "MAIN_POINT",
-        "BIG_NUMBER", "CAPTION_ONLY"
-      ]).default("BLANK").describe("The layout type for the new slide"),
+      layout: z.string().default("BLANK").describe("Predefined layout name or custom layout object ID"),
       insertion_index: z.number().optional().describe("Position to insert (null = append at end)"),
     },
     async ({ presentation_id, layout, insertion_index }) => {
       try {
         const slideId = generateId("slide");
 
+        const slideLayoutReference = PREDEFINED_LAYOUTS.has(layout)
+          ? { predefinedLayout: layout }
+          : { layoutId: layout };
+
         const request: Record<string, unknown> = {
           createSlide: {
             objectId: slideId,
-            slideLayoutReference: { predefinedLayout: layout },
+            slideLayoutReference,
           },
         };
 

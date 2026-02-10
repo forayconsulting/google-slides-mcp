@@ -18,9 +18,9 @@ import {
   type PresentationStyle,
 } from "../utils/style.js";
 
-/** Field mask for style extraction — fetches only what we need. */
+/** Field mask for style extraction — fetches master theme + slide elements for PPTX fallback. */
 const STYLE_FIELDS =
-  "masters.pageProperties.colorScheme,masters.pageElements.shape.placeholder,masters.pageElements.shape.text.textElements.textRun.style";
+  "masters.pageProperties.colorScheme,masters.pageElements.shape.placeholder,masters.pageElements.shape.text.textElements.textRun.style,slides.pageElements.shape.shapeProperties.shapeBackgroundFill,slides.pageElements.shape.text.textElements.textRun.style,slides.pageElements.shape.placeholder";
 
 function generateId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).substring(2, 10)}`;
@@ -42,7 +42,51 @@ function formatValue(value: number): string {
 }
 
 /**
+ * Find the best layout matching the desired type from available layouts.
+ * For TITLE_ONLY: prefer a layout with TITLE placeholder but no BODY.
+ * Falls back to any layout with TITLE, then the first layout.
+ */
+function findBestLayout(
+  layouts: Page[],
+  desiredType: "TITLE_ONLY" | "BLANK"
+): string | undefined {
+  if (!layouts || layouts.length === 0) return undefined;
+
+  let withTitleNoBody: string | undefined;
+  let withTitle: string | undefined;
+
+  for (const layout of layouts) {
+    let hasTitle = false;
+    let hasBody = false;
+    for (const el of layout.pageElements ?? []) {
+      const pType = el.shape?.placeholder?.type;
+      if (pType === "TITLE" || pType === "CENTERED_TITLE") hasTitle = true;
+      if (pType === "BODY" || pType === "SUBTITLE") hasBody = true;
+    }
+    if (desiredType === "TITLE_ONLY" && hasTitle && !hasBody) {
+      withTitleNoBody = layout.objectId;
+      break;
+    }
+    if (hasTitle && !withTitle) {
+      withTitle = layout.objectId;
+    }
+  }
+
+  if (desiredType === "BLANK") {
+    // For BLANK, prefer a layout with no placeholders
+    const blank = layouts.find(
+      (l) => (l.pageElements ?? []).every((el) => !el.shape?.placeholder)
+    );
+    return blank?.objectId ?? layouts[0]?.objectId;
+  }
+
+  return withTitleNoBody ?? withTitle ?? layouts[0]?.objectId;
+}
+
+/**
  * Shared helper: create a TITLE_ONLY slide (or use existing) and find the title placeholder.
+ * Falls back to discovering custom layouts when predefined TITLE_ONLY is not available
+ * (common with PPTX-converted presentations).
  */
 async function setupSlide(
   client: SlidesClient,
@@ -56,16 +100,36 @@ async function setupSlide(
   if (slideId) {
     actualSlideId = slideId;
   } else {
-    // Create a TITLE_ONLY slide
+    // Create a TITLE_ONLY slide, with fallback for PPTX-converted presentations
     actualSlideId = generateId("slide");
-    await client.batchUpdate(presentationId, [
-      {
-        createSlide: {
-          objectId: actualSlideId,
-          slideLayoutReference: { predefinedLayout: "TITLE_ONLY" },
+    try {
+      await client.batchUpdate(presentationId, [
+        {
+          createSlide: {
+            objectId: actualSlideId,
+            slideLayoutReference: { predefinedLayout: "TITLE_ONLY" },
+          },
         },
-      },
-    ]);
+      ]);
+    } catch {
+      // Predefined layout not available — discover custom layouts
+      const pres = await client.getPresentation(
+        presentationId,
+        "layouts(objectId,pageElements.shape.placeholder)"
+      );
+      const layoutId = findBestLayout(pres.layouts ?? [], "TITLE_ONLY");
+      const slideLayoutReference = layoutId
+        ? { layoutId }
+        : {}; // Empty = use default layout
+      await client.batchUpdate(presentationId, [
+        {
+          createSlide: {
+            objectId: actualSlideId,
+            slideLayoutReference,
+          },
+        },
+      ]);
+    }
   }
 
   // Get page to find placeholders

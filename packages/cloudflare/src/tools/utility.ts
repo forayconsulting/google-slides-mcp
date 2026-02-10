@@ -199,6 +199,69 @@ export function registerUtilityTools(
   );
 
   /**
+   * list_layouts - List all available slide layouts in a presentation
+   */
+  server.tool(
+    "list_layouts",
+    "List all available slide layouts in a presentation with their IDs, names, and placeholder types. Useful for PPTX-converted presentations where predefined layout names may not work.",
+    {
+      presentation_id: z.string().describe("The presentation to list layouts from"),
+    },
+    async ({ presentation_id }) => {
+      try {
+        const presentation = await client.getPresentation(
+          presentation_id,
+          "layouts(objectId,layoutProperties,pageElements.shape.placeholder)"
+        );
+
+        const layoutsInfo = (presentation.layouts ?? []).map((layout) => {
+          const layoutId = layout.objectId ?? "";
+          const props = (layout as unknown as Record<string, unknown>).layoutProperties as
+            | Record<string, unknown>
+            | undefined;
+          const name = (props?.name as string) ?? "";
+          const displayName = (props?.displayName as string) ?? "";
+
+          // Collect placeholder types
+          const placeholderTypes: string[] = [];
+          for (const element of layout.pageElements ?? []) {
+            const pType = element.shape?.placeholder?.type;
+            if (pType) {
+              placeholderTypes.push(pType);
+            }
+          }
+
+          return {
+            layout_id: layoutId,
+            name,
+            display_name: displayName,
+            placeholder_types: placeholderTypes,
+          };
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(layoutsInfo, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  /**
    * export_thumbnail - Generate a thumbnail image of a slide
    */
   server.tool(

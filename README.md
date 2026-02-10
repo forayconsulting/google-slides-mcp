@@ -60,7 +60,7 @@ google-slides-mcp/
 │       │   ├── mcp-agent.ts    # McpAgent Durable Object
 │       │   ├── api/            # Google API REST clients + TokenManager
 │       │   ├── auth/           # Google OAuth handler
-│       │   ├── tools/          # All 21 MCP tools
+│       │   ├── tools/          # All 32 MCP tools
 │       │   ├── prompts/        # Workflow and discovery prompts
 │       │   └── utils/          # EMU, color, transform utilities
 │       ├── wrangler.toml
@@ -72,7 +72,7 @@ google-slides-mcp/
 └── README.md
 ```
 
-## Available Tools (21 total)
+## Available Tools (32 total)
 
 ### Low-Level Tools
 - `batch_update` - Execute raw batchUpdate requests against Google Slides API
@@ -85,29 +85,48 @@ google-slides-mcp/
 - `replace_placeholder_with_image` - Replace placeholder shapes with images
 - `search_presentations` - Search for presentations in Google Drive
 
-### Positioning Tools
-- `position_element` - Position and size elements using inches and alignment
-- `distribute_elements` - Distribute elements evenly across the slide
-- `align_elements` - Align multiple elements to each other or the slide
-
 ### Creation Tools
-- `create_slide` - Create a new slide with a specified layout
+- `create_slide` - Create a new slide with a predefined or custom layout
 - `add_text_box` - Add a styled text box to a slide
 - `add_image` - Add an image from a URL
 - `add_shape` - Add shapes (rectangle, ellipse, etc.)
-
-### Utility Tools
-- `list_slides` - List all slides with IDs and titles
-- `get_element_info` - Get element details in human-readable format
-- `export_thumbnail` - Generate slide thumbnails
 
 ### Content Tools
 - `update_slide_content` - Update slide text by placeholder type
 - `update_presentation_content` - Bulk update text across multiple slides
 - `apply_text_style` - Apply consistent styling across slides
 
+### Positioning Tools
+- `position_element` - Position and size elements using inches and alignment
+- `distribute_elements` - Distribute elements evenly across the slide
+- `align_elements` - Align multiple elements to each other or the slide
+
+### Utility Tools
+- `list_slides` - List all slides with IDs and titles
+- `list_layouts` - List available slide layouts with placeholder types
+- `get_element_info` - Get element details in human-readable format
+- `export_thumbnail` - Generate slide thumbnails
+
+### Cleanup Tools
+- `clear_slide` - Remove all elements from a slide
+
 ### Analysis Tools
 - `analyze_presentation` - Deep-dive style guide extraction
+
+### Visualization Tools
+- `add_table` - Create a styled data table on a slide
+- `add_bar_chart` - Create a bar chart using shapes
+- `add_stat_callout` - Create a KPI/metric display card
+
+### Decoration Tools
+- `set_slide_background` - Set slide background to a color or image
+- `add_line` - Add a straight line to a slide
+
+### Composite Tools
+- `get_presentation_style` - Extract theme colors and fonts from a presentation
+- `create_table_slide` - Create a complete themed table slide in one call
+- `create_chart_slide` - Create a complete themed bar chart slide in one call
+- `create_dashboard_slide` - Create a complete KPI dashboard slide in one call
 
 ## MCP Prompts (7 total)
 
