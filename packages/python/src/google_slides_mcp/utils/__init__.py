@@ -1,6 +1,12 @@
 """Utility modules for Google Slides MCP Server."""
 
 from google_slides_mcp.utils.colors import hex_to_rgb, rgb_to_hex
+from google_slides_mcp.utils.style import (
+    DEFAULT_STYLE,
+    STYLE_FIELDS,
+    PresentationStyle,
+    extract_presentation_style,
+)
 from google_slides_mcp.utils.transforms import (
     SlideSize,
     build_absolute_transform,
@@ -37,6 +43,11 @@ __all__ = [
     # Colors
     "hex_to_rgb",
     "rgb_to_hex",
+    # Style
+    "PresentationStyle",
+    "DEFAULT_STYLE",
+    "STYLE_FIELDS",
+    "extract_presentation_style",
     # Transforms
     "SlideSize",
     "calculate_center_position",

@@ -176,12 +176,15 @@ Choose the right tool based on your content type:
 
 | Content Type | Tool | Example |
 |--------------|------|---------|
+| Data tables | \`create_table_slide\` | Auto-themed table with header styling |
+| Bar charts | \`create_chart_slide\` | Auto-themed chart, single or multi-color |
+| KPI dashboards | \`create_dashboard_slide\` | Auto-grid metric cards |
 | {{placeholder}} text | \`replace_placeholders\` | \`replace_placeholders(id, {"{{company}}": "Acme Corp"})\` |
 | TITLE/SUBTITLE/BODY | \`update_presentation_content\` | Bulk update by placeholder type |
 | Single slide text | \`update_slide_content\` | Update one slide's placeholders |
 | Image placeholders | \`replace_placeholder_with_image\` | Swap shapes for images |
 
-**Recommendation**: For multiple slides, use \`update_presentation_content\` - it's more efficient (single API call).
+**Recommendation**: Use **composite slide tools** (\`create_table_slide\`, \`create_chart_slide\`, \`create_dashboard_slide\`) whenever possible — they auto-apply theme colors and create the entire slide in one call. For text-only slides, use \`update_presentation_content\` for efficiency.
 
 ## Step 5: Apply Styling (Optional)
 If the template styling needs adjustment:
@@ -238,11 +241,24 @@ Start by inspecting the presentation:
 | Align multiple elements | \`align_elements\` | Align to edge or to each other |
 | Space elements evenly | \`distribute_elements\` | Horizontal or vertical distribution |
 
+### For Visual Elements (Prefer Composite Tools)
+| Task | Tool | Notes |
+|------|------|-------|
+| Data table slide | \`create_table_slide\` | **Recommended** — auto-themed, one call |
+| Bar chart slide | \`create_chart_slide\` | **Recommended** — auto-themed, one call |
+| KPI dashboard slide | \`create_dashboard_slide\` | **Recommended** — auto-themed, auto-grid |
+| Data table (on existing slide) | \`add_table\` | Manual colors, for fine control |
+| Bar chart (on existing slide) | \`add_bar_chart\` | Manual colors, for fine control |
+| Single KPI card | \`add_stat_callout\` | Manual colors, for fine control |
+| Backgrounds | \`set_slide_background\` | Solid color or image |
+| Lines/dividers | \`add_line\` | Decorative lines |
+| Theme colors for atomic tools | \`get_presentation_style\` | Extract colors once, use everywhere |
+
 ### For Structural Changes
 | Task | Tool | Notes |
 |------|------|-------|
 | Add new slides | \`create_slide\` | With layout templates |
-| Add text boxes | \`add_text_box\` | New text at specific position |
+| Add text boxes | \`add_text_box\` | New text at specific position (supports autofit) |
 | Add images | \`add_image\` | From URL |
 | Delete slides/elements | \`batch_update\` | Use deleteObject request |
 
@@ -299,11 +315,28 @@ create_slide(
 Available layouts: BLANK, TITLE, TITLE_AND_BODY, TITLE_AND_TWO_COLUMNS, TITLE_ONLY, SECTION_HEADER, etc.
 
 ## Step 4: Add Content Elements
+
+### Composite Tools (Recommended for data-heavy slides)
+These create entire themed slides in one call — no manual color specification:
+| Slide Type | Tool | Key Parameters |
+|------------|------|----------------|
+| Table slide | \`create_table_slide\` | title, data (2D array) — auto-themed |
+| Chart slide | \`create_chart_slide\` | title, labels, values — auto-themed |
+| KPI dashboard | \`create_dashboard_slide\` | title, metrics[] — auto-grid, auto-themed |
+
+### Atomic Tools (For custom layouts)
 | Element | Tool | Key Parameters |
 |---------|------|----------------|
-| Text | \`add_text_box\` | x, y, width, height (in inches), text, font_size |
+| Text | \`add_text_box\` | x, y, width, height (in inches), text, font_size, autofit |
 | Images | \`add_image\` | x, y, width, height, image_url |
 | Shapes | \`add_shape\` | shape_type, position, fill_color |
+| Tables | \`add_table\` | data (2D array), header styling, zebra stripes |
+| Charts | \`add_bar_chart\` | labels, values, bar colors |
+| KPIs | \`add_stat_callout\` | stat_value, label, accent color |
+| Lines | \`add_line\` | start/end coordinates, color, weight |
+| Backgrounds | \`set_slide_background\` | color or image_url |
+
+**Tip**: Use \`get_presentation_style\` to extract theme colors when using atomic tools.
 
 ### Positioning Reference (16:9 slide = 10" × 5.625")
 | Position | X (inches) | Y (inches) |
@@ -326,8 +359,17 @@ After adding elements:
 
 | Need | Recommended Tool |
 |------|------------------|
+| Table slide | \`create_table_slide\` (auto-themed) |
+| Chart slide | \`create_chart_slide\` (auto-themed) |
+| KPI dashboard | \`create_dashboard_slide\` (auto-themed) |
+| Theme colors | \`get_presentation_style\` |
 | Create structure | \`create_slide\` |
 | Add content | \`add_text_box\`, \`add_image\`, \`add_shape\` |
+| Data tables (custom) | \`add_table\` |
+| Charts (custom) | \`add_bar_chart\` |
+| Single KPI card | \`add_stat_callout\` |
+| Backgrounds | \`set_slide_background\` |
+| Dividers | \`add_line\` |
 | Position elements | \`position_element\`, \`align_elements\` |
 | Style text | \`apply_text_style\` |
 | Advanced operations | \`batch_update\` |
@@ -346,24 +388,24 @@ function buildStyleReplicationWorkflow(
 Source (extract styles from): \`${sourceId}\`
 Target (apply styles to): \`${targetId}\`
 
-## Step 1: Analyze Source Presentation
-Extract the style guide from the source:
+## Step 1: Extract Source Styles
+Get the compact theme object:
+\`\`\`
+get_presentation_style(presentation_id="${sourceId}")
+\`\`\`
+This returns: primary_color, accent_colors, heading_font, body_font, heading_text_color, body_text_color, background_color, alt_background_color.
+
+For deeper analysis (slide categories, placeholder patterns, recommendations):
 \`\`\`
 analyze_presentation(presentation_id="${sourceId}")
 \`\`\`
 
-Review the output for:
-- **Colors**: Primary, secondary, accent, background
-- **Fonts**: Heading family, body family, sizes
-- **Placeholder patterns**: How titles, subtitles, body text are structured
-
 ## Step 2: Document the Style Guide
-From the analysis, note:
-- Title font: [family, size, color, weight]
-- Subtitle font: [family, size, color]
-- Body font: [family, size, color]
-- Accent color: [hex code]
-- Background color: [hex code]
+From \`get_presentation_style\`, you already have the complete color and font information:
+- Primary/accent colors → for bar charts, headers, highlights
+- Heading/body fonts → for all text elements
+- Text colors → for consistent readability
+- Background colors → for cards and alternating rows
 
 ## Step 3: Analyze Target Presentation
 Understand what needs to be styled:

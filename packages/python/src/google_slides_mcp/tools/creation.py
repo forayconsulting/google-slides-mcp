@@ -134,6 +134,7 @@ def register_creation_tools(mcp: "FastMCP") -> None:
         italic: bool = False,
         color: str = "#000000",
         alignment: Literal["LEFT", "CENTER", "RIGHT"] = "LEFT",
+        autofit: Literal["none", "shrink_text", "resize_shape"] = "none",
     ) -> dict:
         """Add a text box with styling to a slide.
 
@@ -151,6 +152,7 @@ def register_creation_tools(mcp: "FastMCP") -> None:
             italic: Whether text is italic
             color: Text color as hex (e.g., "#FF0000")
             alignment: Text alignment within the box
+            autofit: Autofit behavior - none, shrink_text (shrink text to fit), or resize_shape (grow shape to fit text)
 
         Returns:
             Dictionary with the created element ID
@@ -226,6 +228,21 @@ def register_creation_tools(mcp: "FastMCP") -> None:
                 }
             },
         ]
+
+        # Apply autofit if requested
+        if autofit != "none":
+            autofit_type = "TEXT_AUTOFIT" if autofit == "shrink_text" else "SHAPE_AUTOFIT"
+            requests.append({
+                "updateShapeProperties": {
+                    "objectId": element_id,
+                    "shapeProperties": {
+                        "autofit": {
+                            "autofitType": autofit_type,
+                        },
+                    },
+                    "fields": "autofit.autofitType",
+                }
+            })
 
         await service.batch_update(presentation_id, requests)
 

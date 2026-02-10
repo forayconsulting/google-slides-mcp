@@ -16,6 +16,9 @@ import { registerPositioningTools } from "./positioning.js";
 import { registerContentTools } from "./content.js";
 import { registerAnalysisTools } from "./analysis.js";
 import { registerCleanupTools } from "./cleanup.js";
+import { registerVisualizationTools } from "./visualization.js";
+import { registerDecorationTools } from "./decoration.js";
+import { registerCompositeTools } from "./composite.js";
 
 /**
  * Register all tools with the MCP server.
@@ -70,5 +73,17 @@ export function registerAllTools(
   // - analyze_presentation
   registerAnalysisTools(server, tokenManager);
 
-  // Total: 22 tools
+  // Priority 10: Visualization tools (3 tools)
+  // - add_table, add_bar_chart, add_stat_callout
+  registerVisualizationTools(server, tokenManager);
+
+  // Priority 11: Decoration tools (2 tools)
+  // - set_slide_background, add_line
+  registerDecorationTools(server, tokenManager);
+
+  // Priority 12: Composite tools (4 tools)
+  // - get_presentation_style, create_table_slide, create_chart_slide, create_dashboard_slide
+  registerCompositeTools(server, tokenManager);
+
+  // Total: 31 tools
 }

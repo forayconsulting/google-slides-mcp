@@ -5,3 +5,4 @@
 export * from "./units.js";
 export * from "./colors.js";
 export * from "./transforms.js";
+export * from "./style.js";

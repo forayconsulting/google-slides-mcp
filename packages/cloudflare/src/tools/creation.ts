@@ -131,12 +131,13 @@ export function registerCreationTools(
       italic: z.boolean().default(false).describe("Whether text is italic"),
       color: z.string().default("#000000").describe("Text color as hex"),
       alignment: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT").describe("Text alignment"),
+      autofit: z.enum(["none", "shrink_text", "resize_shape"]).default("none").describe("Autofit behavior: none, shrink_text (shrink text to fit), or resize_shape (grow shape to fit text)"),
     },
-    async ({ presentation_id, slide_id, text, x, y, width, height, font_size, font_family, bold, italic, color, alignment }) => {
+    async ({ presentation_id, slide_id, text, x, y, width, height, font_size, font_family, bold, italic, color, alignment, autofit }) => {
       try {
         const elementId = generateId("textbox");
 
-        const requests = [
+        const requests: Record<string, unknown>[] = [
           // Create the text box shape
           {
             createShape: {
@@ -195,6 +196,21 @@ export function registerCreationTools(
             },
           },
         ];
+
+        // Apply autofit if requested
+        if (autofit !== "none") {
+          requests.push({
+            updateShapeProperties: {
+              objectId: elementId,
+              shapeProperties: {
+                autofit: {
+                  autofitType: autofit === "shrink_text" ? "TEXT_AUTOFIT" : "SHAPE_AUTOFIT",
+                },
+              },
+              fields: "autofit.autofitType",
+            },
+          });
+        }
 
         await client.batchUpdate(presentation_id, requests);
 

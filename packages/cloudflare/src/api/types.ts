@@ -214,8 +214,18 @@ export interface SlideProperties {
   notesPage?: Page;
 }
 
+export interface ThemeColorPair {
+  type?: string;
+  color?: OpaqueColor;
+}
+
+export interface ColorScheme {
+  colors?: ThemeColorPair[];
+}
+
 export interface PageProperties {
   pageBackgroundFill?: Fill;
+  colorScheme?: ColorScheme;
 }
 
 export interface Presentation {

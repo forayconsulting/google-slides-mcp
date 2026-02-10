@@ -45,9 +45,12 @@ export function registerDiscoveryPrompts(server: McpServer): void {
       argsSchema: {
         category: z
           .enum([
+            "composite",
             "templates",
             "content",
             "creation",
+            "visualization",
+            "decoration",
             "positioning",
             "utility",
             "analysis",
@@ -105,7 +108,7 @@ export function registerDiscoveryPrompts(server: McpServer): void {
 function buildGetStartedContent(): string {
   return `# Google Slides MCP Server - Getting Started
 
-This server provides **21 tools** for creating and manipulating Google Slides presentations, organized into a hierarchy from high-level semantic operations to low-level API access.
+This server provides **31 tools** for creating and manipulating Google Slides presentations, organized into a hierarchy from high-level semantic operations to low-level API access.
 
 ## Abstraction Levels
 
@@ -118,17 +121,46 @@ Work with presentations using intuitive concepts. These tools handle complexity 
 | **Content** | update_slide_content, update_presentation_content, apply_text_style | Element ID discovery, batch operations |
 | **Positioning** | position_element, align_elements, distribute_elements | EMU math, transform matrices |
 
+### Level 1b: Composite Slide Tools (One-call slide creation)
+Create entire themed slides with content in a single call — no manual color specification:
+
+| Tool | Purpose |
+|------|---------|
+| get_presentation_style | Extract theme colors/fonts for use with atomic tools |
+| create_table_slide | Complete table slide with themed header, zebra stripes |
+| create_chart_slide | Complete bar chart slide with themed bars |
+| create_dashboard_slide | Complete KPI dashboard with auto-grid metric cards |
+
+These tools read the template's theme automatically and apply colors, fonts, and positioning.
+
 ### Level 2: Creation Tools
 Create new elements with sensible defaults:
 
 | Tool | Purpose |
 |------|---------|
 | create_slide | Add slides with layout templates |
-| add_text_box | Add text at specific position |
+| add_text_box | Add text at specific position (supports autofit) |
 | add_image | Add images from URLs |
 | add_shape | Add geometric shapes |
 
 All positions and sizes use **inches** (not EMUs).
+
+### Level 2b: Visualization Tools
+Create professional visual elements in a single call:
+
+| Tool | Purpose |
+|------|---------|
+| add_table | Styled data tables with headers and zebra striping |
+| add_bar_chart | Shape-based bar charts (no Sheets dependency) |
+| add_stat_callout | KPI/metric display cards for dashboards |
+
+### Level 2c: Decoration Tools
+Backgrounds, lines, and decorative elements:
+
+| Tool | Purpose |
+|------|---------|
+| set_slide_background | Set slide background color or image |
+| add_line | Decorative lines and dividers |
 
 ### Level 3: Utility Tools
 Inspect and understand presentations:
@@ -151,7 +183,6 @@ Direct Google Slides API access for cases not covered by semantic tools:
 
 **When to use low-level tools:**
 - Deleting slides or elements
-- Table operations
 - Animations and transitions
 - Custom formatting not supported by semantic tools
 
@@ -185,9 +216,68 @@ Use these prompts for guided workflows:
  * Build the tool_reference prompt content.
  */
 function buildToolReferenceContent(
-  category?: "templates" | "content" | "creation" | "positioning" | "utility" | "analysis" | "low-level"
+  category?: "composite" | "templates" | "content" | "creation" | "visualization" | "decoration" | "positioning" | "utility" | "analysis" | "low-level"
 ): string {
   const sections: Record<string, string> = {
+    composite: `## Composite Slide Tools (4 tools)
+Create entire themed slides in one call. These tools automatically extract and apply your presentation's theme colors and fonts — no manual color specification needed.
+
+### get_presentation_style
+Extract theme colors and fonts from the master page.
+\`\`\`
+get_presentation_style(presentation_id: string)
+\`\`\`
+**Returns**: { primary_color, accent_colors[], heading_font, body_font, heading_text_color, body_text_color, background_color, alt_background_color, source }
+
+**Use when**: You need theme colors for atomic tools (add_shape, add_text_box, etc.)
+
+### create_table_slide
+Create a complete themed table slide.
+\`\`\`
+create_table_slide(
+  presentation_id: string,
+  title: string,
+  data: string[][],       // 2D array — first row is header
+  slide_id?: string,      // Use existing slide instead of creating new
+  subtitle?: string,
+  header_row?: boolean    // Default true
+)
+\`\`\`
+**Auto-styling**: Header bg = ACCENT1, header text = LIGHT1, zebra stripes = LIGHT2, body text = DARK1, font = theme body font
+
+### create_chart_slide
+Create a complete themed bar chart slide.
+\`\`\`
+create_chart_slide(
+  presentation_id: string,
+  title: string,
+  labels: string[],
+  values: number[],
+  slide_id?: string,
+  chart_title?: string,
+  show_values?: boolean,  // Default true
+  multi_color?: boolean   // Use ACCENT1-6 for different bars
+)
+\`\`\`
+**Auto-styling**: Bars = ACCENT1 (or ACCENT1-6 if multi_color), labels = theme fonts and colors
+
+### create_dashboard_slide
+Create a complete KPI dashboard slide with auto-grid.
+\`\`\`
+create_dashboard_slide(
+  presentation_id: string,
+  title: string,
+  metrics: [
+    { value: "3.5M", label: "Users", description?: "Up 25%" },
+    ...
+  ],
+  slide_id?: string,
+  show_card_background?: boolean  // Default true
+)
+\`\`\`
+**Auto-layout**: 1-4 → single row, 5-6 → 2×3, 7-8 → 2×4. Last row centered if incomplete.
+**Auto-styling**: Stat = ACCENT1 + heading_font, label = body_text_color + body_font, card bg = LIGHT2`,
+
     templates: `## Templates (4 tools)
 Starting point for most presentation work.
 
@@ -342,6 +432,92 @@ add_shape(
 )
 \`\`\``,
 
+    visualization: `## Visualization (3 tools)
+Professional visual elements in a single call.
+
+### add_table
+Create a styled data table.
+\`\`\`
+add_table(
+  presentation_id: string,
+  slide_id: string,
+  data: string[][],      // 2D array — first row is header
+  header_row?: boolean,  // Style first row as header (default true)
+  header_color?: string, // Header background hex (default "#1a73e8")
+  alternate_row_color?: string,  // Zebra stripe color
+  border_color?: string, // Border hex
+  font_size?: number,    // Body font size (default 12)
+  x?: number, y?: number,
+  width?: number, height?: number
+)
+\`\`\`
+**Returns**: Element ID, row count, column count
+
+### add_bar_chart
+Create a bar chart using shapes (no Sheets dependency).
+\`\`\`
+add_bar_chart(
+  presentation_id: string,
+  slide_id: string,
+  labels: string[],      // Category labels
+  values: number[],      // Numeric values
+  title?: string,        // Chart title
+  color?: string,        // Bar fill color (default "#1a73e8")
+  show_values?: boolean, // Show value labels above bars
+  bar_color_scale?: string[],  // Per-bar colors
+  x?: number, y?: number,
+  width?: number, height?: number
+)
+\`\`\`
+**Returns**: Array of element IDs, bar count
+
+### add_stat_callout
+Create a KPI/metric display card.
+\`\`\`
+add_stat_callout(
+  presentation_id: string,
+  slide_id: string,
+  stat_value: string,    // "3.5M", "99.9%"
+  label: string,         // "Active Users"
+  description?: string,  // "Up 25% YoY"
+  color?: string,        // Accent color (default "#1a73e8")
+  background_color?: string,  // Card background
+  stat_font_size?: number,    // Default 48
+  x?: number, y?: number,
+  width?: number, height?: number
+)
+\`\`\``,
+
+    decoration: `## Decoration (2 tools)
+Backgrounds, lines, and decorative elements.
+
+### set_slide_background
+Set a slide's background color or image.
+\`\`\`
+set_slide_background(
+  presentation_id: string,
+  slide_id: string,
+  color?: string,        // Hex color (mutually exclusive with image_url)
+  image_url?: string     // Stretched image (mutually exclusive with color)
+)
+\`\`\`
+
+### add_line
+Add a straight line or divider.
+\`\`\`
+add_line(
+  presentation_id: string,
+  slide_id: string,
+  start_x: number,
+  start_y: number,
+  end_x: number,
+  end_y: number,
+  color?: string,        // Default "#DADCE0"
+  weight?: number,       // Points (default 1)
+  dash_style?: string    // SOLID, DOT, DASH, DASH_DOT, LONG_DASH, LONG_DASH_DOT
+)
+\`\`\``,
+
     positioning: `## Positioning (3 tools)
 Move and align elements. All measurements in **inches**.
 
@@ -493,6 +669,10 @@ ${sections[category]}`;
 
   return `# Google Slides MCP Server - Tool Reference
 
+${sections.composite}
+
+---
+
 ${sections.templates}
 
 ---
@@ -502,6 +682,14 @@ ${sections.content}
 ---
 
 ${sections.creation}
+
+---
+
+${sections.visualization}
+
+---
+
+${sections.decoration}
 
 ---
 
