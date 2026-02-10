@@ -71,20 +71,43 @@ def _find_all_placeholders(slide: dict) -> list[dict]:
     return results
 
 
-def _build_text_replacement_requests(object_id: str, new_text: str) -> list[dict]:
-    """Build deleteText + insertText pair for complete text replacement.
+def _build_text_replacement_requests(
+    object_id: str,
+    new_text: str,
+    current_text: str,
+    add_bullets: bool = False,
+) -> list[dict]:
+    """Build text replacement requests, conditionally skipping deleteText for empty
+    placeholders and optionally adding bullet formatting.
 
     Args:
         object_id: The element's object ID
         new_text: The new text to insert
+        current_text: The current text in the placeholder (trimmed)
+        add_bullets: Whether to add bullet formatting after inserting text
 
     Returns:
-        List of two request dicts (deleteText, insertText)
+        List of request dicts
     """
-    return [
-        {"deleteText": {"objectId": object_id, "textRange": {"type": "ALL"}}},
-        {"insertText": {"objectId": object_id, "text": new_text, "insertionIndex": 0}},
-    ]
+    requests: list[dict] = []
+    if len(current_text) > 0:
+        requests.append(
+            {"deleteText": {"objectId": object_id, "textRange": {"type": "ALL"}}}
+        )
+    requests.append(
+        {"insertText": {"objectId": object_id, "text": new_text, "insertionIndex": 0}}
+    )
+    if add_bullets:
+        requests.append(
+            {
+                "createParagraphBullets": {
+                    "objectId": object_id,
+                    "textRange": {"type": "ALL"},
+                    "bulletPreset": "BULLET_DISC_CIRCLE_SQUARE",
+                }
+            }
+        )
+    return requests
 
 
 def _build_style_request(
@@ -215,12 +238,14 @@ def register_content_tools(mcp: "FastMCP") -> None:
         updated: dict[str, bool] = {}
         not_found: list[str] = []
 
-        for placeholder_type, new_text in content.items():
+        for placeholder_type, new_text_input in content.items():
+            is_array = isinstance(new_text_input, list)
             # Handle list content (join with newlines)
-            if isinstance(new_text, list):
-                new_text = "\n".join(str(item) for item in new_text)
+            if is_array:
+                new_text = "\n".join(str(item) for item in new_text_input)
             else:
-                new_text = str(new_text)
+                new_text = str(new_text_input)
+            add_bullets = is_array and placeholder_type == "BODY"
 
             # Find matching placeholders
             elements = _find_placeholder_elements(slide, placeholder_type)
@@ -228,7 +253,12 @@ def register_content_tools(mcp: "FastMCP") -> None:
             if elements:
                 for element in elements:
                     requests.extend(
-                        _build_text_replacement_requests(element["object_id"], new_text)
+                        _build_text_replacement_requests(
+                            element["object_id"],
+                            new_text,
+                            element["current_text"],
+                            add_bullets,
+                        )
                     )
                 updated[placeholder_type] = True
             else:
@@ -298,22 +328,29 @@ def register_content_tools(mcp: "FastMCP") -> None:
 
             slide_had_updates = False
 
-            for key, new_text in slide_spec.items():
+            for key, new_text_input in slide_spec.items():
                 if key == "slide_id":
                     continue
 
+                is_array = isinstance(new_text_input, list)
                 # Handle list content
-                if isinstance(new_text, list):
-                    new_text = "\n".join(str(item) for item in new_text)
+                if is_array:
+                    new_text = "\n".join(str(item) for item in new_text_input)
                 else:
-                    new_text = str(new_text)
+                    new_text = str(new_text_input)
+                add_bullets = is_array and key == "BODY"
 
                 # Find matching placeholders
                 elements = _find_placeholder_elements(slide, key)
 
                 for element in elements:
                     requests.extend(
-                        _build_text_replacement_requests(element["object_id"], new_text)
+                        _build_text_replacement_requests(
+                            element["object_id"],
+                            new_text,
+                            element["current_text"],
+                            add_bullets,
+                        )
                     )
                     placeholders_updated += 1
                     slide_had_updates = True

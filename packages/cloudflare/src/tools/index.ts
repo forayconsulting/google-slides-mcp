@@ -15,6 +15,7 @@ import { registerCreationTools } from "./creation.js";
 import { registerPositioningTools } from "./positioning.js";
 import { registerContentTools } from "./content.js";
 import { registerAnalysisTools } from "./analysis.js";
+import { registerCleanupTools } from "./cleanup.js";
 
 /**
  * Register all tools with the MCP server.
@@ -61,9 +62,13 @@ export function registerAllTools(
   // - position_element, align_elements, distribute_elements
   registerPositioningTools(server, tokenManager);
 
+  // Priority 8: Cleanup tools (1 tool)
+  // - clear_slide
+  registerCleanupTools(server, tokenManager);
+
   // Priority 9: Analysis tools (1 tool)
   // - analyze_presentation
   registerAnalysisTools(server, tokenManager);
 
-  // Total: 21 tools
+  // Total: 22 tools
 }

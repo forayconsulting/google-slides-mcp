@@ -43,13 +43,30 @@ function findPlaceholderElements(slide: Page, placeholderType: string): Placehol
 }
 
 /**
- * Build deleteText + insertText pair for complete text replacement.
+ * Build text replacement requests, conditionally skipping deleteText for empty placeholders
+ * and optionally adding bullet formatting.
  */
-function buildTextReplacementRequests(objectId: string, newText: string): Record<string, unknown>[] {
-  return [
-    { deleteText: { objectId, textRange: { type: "ALL" } } },
-    { insertText: { objectId, text: newText, insertionIndex: 0 } },
-  ];
+function buildTextReplacementRequests(
+  objectId: string,
+  newText: string,
+  currentText: string,
+  addBullets: boolean = false
+): Record<string, unknown>[] {
+  const requests: Record<string, unknown>[] = [];
+  if (currentText.length > 0) {
+    requests.push({ deleteText: { objectId, textRange: { type: "ALL" } } });
+  }
+  requests.push({ insertText: { objectId, text: newText, insertionIndex: 0 } });
+  if (addBullets) {
+    requests.push({
+      createParagraphBullets: {
+        objectId,
+        textRange: { type: "ALL" },
+        bulletPreset: "BULLET_DISC_CIRCLE_SQUARE",
+      },
+    });
+  }
+  return requests;
 }
 
 /**
@@ -147,17 +164,19 @@ export function registerContentTools(
         const notFound: string[] = [];
 
         for (const [placeholderType, newTextInput] of Object.entries(content)) {
+          const isArray = Array.isArray(newTextInput);
           // Handle list content (join with newlines)
-          const newText = Array.isArray(newTextInput)
+          const newText = isArray
             ? newTextInput.join("\n")
             : String(newTextInput);
+          const addBullets = isArray && placeholderType === "BODY";
 
           // Find matching placeholders
           const elements = findPlaceholderElements(slide, placeholderType);
 
           if (elements.length > 0) {
             for (const element of elements) {
-              requests.push(...buildTextReplacementRequests(element.object_id, newText));
+              requests.push(...buildTextReplacementRequests(element.object_id, newText, element.current_text, addBullets));
             }
             updated[placeholderType] = true;
           } else {
@@ -235,16 +254,18 @@ export function registerContentTools(
           for (const [key, newTextInput] of Object.entries(slideSpec)) {
             if (key === "slide_id") continue;
 
+            const isArray = Array.isArray(newTextInput);
             // Handle list content
-            const newText = Array.isArray(newTextInput)
+            const newText = isArray
               ? newTextInput.join("\n")
               : String(newTextInput);
+            const addBullets = isArray && key === "BODY";
 
             // Find matching placeholders
             const elements = findPlaceholderElements(slide, key);
 
             for (const element of elements) {
-              requests.push(...buildTextReplacementRequests(element.object_id, newText));
+              requests.push(...buildTextReplacementRequests(element.object_id, newText, element.current_text, addBullets));
               placeholdersUpdated++;
               slideHadUpdates = true;
             }
