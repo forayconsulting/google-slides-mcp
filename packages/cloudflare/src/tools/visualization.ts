@@ -244,7 +244,7 @@ export function registerVisualizationTools(
    */
   server.tool(
     "add_bar_chart",
-    "Create a bar chart using shapes. No Google Sheets dependency — renders directly on the slide with proportionally-scaled bars.",
+    "Create a bar chart using shapes. No Google Sheets dependency — renders directly on the slide with proportionally-scaled bars. NOTE: For automatic theme colors, prefer create_chart_slide (composite tool). This tool requires explicit color/bar_color_scale parameters.",
     {
       presentation_id: z.string().describe("The presentation ID"),
       slide_id: z.string().describe("The slide to add the chart to"),

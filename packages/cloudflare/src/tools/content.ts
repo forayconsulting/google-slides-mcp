@@ -11,6 +11,8 @@ import { SlidesClient } from "../api/slides-client.js";
 import type { TokenManager } from "../api/token-manager.js";
 import type { Page } from "../api/types.js";
 import { hexToRgb } from "../utils/colors.js";
+import { extractElementBounds } from "../utils/transforms.js";
+import { emuToInches } from "../utils/units.js";
 
 /**
  * Unescape literal \n and \t sequences that LLMs sometimes double-escape
@@ -24,6 +26,37 @@ interface PlaceholderElement {
   object_id: string;
   placeholder_type: string;
   current_text: string;
+}
+
+/**
+ * Parse a placeholder key like "BODY_1" into { type: "BODY", index: 1 }
+ * or "BODY" into { type: "BODY", index: undefined }.
+ */
+function parsePlaceholderKey(key: string): { type: string; index: number | undefined } {
+  const match = key.match(/^(.+?)_(\d+)$/);
+  if (match) {
+    return { type: match[1], index: parseInt(match[2], 10) };
+  }
+  return { type: key, index: undefined };
+}
+
+/**
+ * Get placeholder bounds in inches from a page element.
+ */
+function getPlaceholderBounds(
+  slide: Page,
+  objectId: string
+): { id: string; x: number; y: number; width: number; height: number } | undefined {
+  const element = slide.pageElements?.find((el) => el.objectId === objectId);
+  if (!element?.size || !element?.transform) return undefined;
+  const bounds = extractElementBounds(element);
+  return {
+    id: objectId,
+    x: Math.round(emuToInches(bounds.x) * 100) / 100,
+    y: Math.round(emuToInches(bounds.y) * 100) / 100,
+    width: Math.round(emuToInches(bounds.width) * 100) / 100,
+    height: Math.round(emuToInches(bounds.height) * 100) / 100,
+  };
 }
 
 /**
@@ -166,38 +199,67 @@ export function registerContentTools(
    */
   server.tool(
     "update_slide_content",
-    "Update slide text by placeholder type (TITLE, SUBTITLE, BODY). No element IDs needed - automatically finds placeholders and replaces text. NOTE: For multiple slides, PREFER update_presentation_content (single API call, more efficient).",
+    `Update slide text by placeholder type (TITLE, SUBTITLE, BODY). No element IDs needed - automatically finds placeholders and replaces text. Returns position/size of each updated placeholder in inches for spatial awareness.
+
+For multi-column layouts with multiple BODY placeholders:
+- BODY (string) → writes to first BODY placeholder only
+- BODY_0, BODY_1, BODY_2 → writes to specific BODY placeholder by index
+- BODY (array, multiple BODY placeholders) → distributes one item per BODY placeholder
+
+NOTE: For multiple slides, PREFER update_presentation_content (single API call, more efficient).`,
     {
       presentation_id: z.string().describe("The presentation ID"),
       slide_id: z.string().describe("The slide to update"),
-      content: z.record(z.union([z.string(), z.array(z.string())])).describe("Dict mapping placeholder types to new text"),
+      content: z.record(z.union([z.string(), z.array(z.string())])).describe("Dict mapping placeholder types to new text. Use BODY_0, BODY_1 for multi-column layouts."),
     },
     async ({ presentation_id, slide_id, content }) => {
       try {
         const slide = await client.getPage(presentation_id, slide_id);
 
         const requests: Record<string, unknown>[] = [];
-        const updated: Record<string, boolean> = {};
+        const updated: Record<string, { id: string; x: number; y: number; width: number; height: number } | true> = {};
         const notFound: string[] = [];
 
-        for (const [placeholderType, newTextInput] of Object.entries(content)) {
+        for (const [key, newTextInput] of Object.entries(content)) {
+          const { type: placeholderType, index } = parsePlaceholderKey(key);
           const isArray = Array.isArray(newTextInput);
-          // Handle list content (join with newlines)
-          const newText = isArray
-            ? newTextInput.join("\n")
-            : String(newTextInput);
           const addBullets = isArray && placeholderType === "BODY";
 
           // Find matching placeholders
           const elements = findPlaceholderElements(slide, placeholderType);
 
-          if (elements.length > 0) {
-            for (const element of elements) {
-              requests.push(...buildTextReplacementRequests(element.object_id, newText, element.current_text, addBullets));
+          if (elements.length === 0) {
+            notFound.push(key);
+            continue;
+          }
+
+          if (index !== undefined) {
+            // Indexed access: BODY_0, BODY_1, etc.
+            if (index >= elements.length) {
+              notFound.push(key);
+              continue;
             }
-            updated[placeholderType] = true;
+            const element = elements[index];
+            const newText = isArray ? (newTextInput as string[]).join("\n") : String(newTextInput);
+            requests.push(...buildTextReplacementRequests(element.object_id, newText, element.current_text, addBullets));
+            const bounds = getPlaceholderBounds(slide, element.object_id);
+            updated[key] = bounds ?? true;
+          } else if (isArray && elements.length > 1) {
+            // Array value with multiple matching placeholders: distribute
+            const items = newTextInput as string[];
+            for (let i = 0; i < Math.min(items.length, elements.length); i++) {
+              const element = elements[i];
+              requests.push(...buildTextReplacementRequests(element.object_id, items[i], element.current_text, addBullets));
+              const bounds = getPlaceholderBounds(slide, element.object_id);
+              updated[`${placeholderType}_${i}`] = bounds ?? true;
+            }
           } else {
-            notFound.push(placeholderType);
+            // String value or single placeholder: write to first only
+            const newText = isArray ? (newTextInput as string[]).join("\n") : String(newTextInput);
+            const element = elements[0];
+            requests.push(...buildTextReplacementRequests(element.object_id, newText, element.current_text, addBullets));
+            const bounds = getPlaceholderBounds(slide, element.object_id);
+            updated[key] = bounds ?? true;
           }
         }
 
@@ -233,10 +295,12 @@ export function registerContentTools(
    */
   server.tool(
     "update_presentation_content",
-    `Update text across multiple slides in one call. More efficient than calling update_slide_content multiple times.
+    `Update text across multiple slides in one call. More efficient than calling update_slide_content multiple times. Returns placeholder bounds for spatial awareness.
 
 Each item in the slides array should have a slide_id plus placeholder type keys:
-  [{"slide_id": "p3", "TITLE": "Slide 1", "BODY": "Content"}, {"slide_id": "p4", "TITLE": "Slide 2"}]`,
+  [{"slide_id": "p3", "TITLE": "Slide 1", "BODY": "Content"}, {"slide_id": "p4", "TITLE": "Slide 2"}]
+
+For multi-column layouts: use BODY_0, BODY_1 for indexed access, or pass an array to distribute across BODY placeholders.`,
     {
       presentation_id: z.string().describe("The presentation ID"),
       slides: z.array(z.record(z.unknown())).describe("List of dicts with slide_id and placeholder content"),
@@ -258,6 +322,7 @@ Each item in the slides array should have a slide_id plus placeholder type keys:
         let slidesUpdated = 0;
         let placeholdersUpdated = 0;
         const errors: string[] = [];
+        const slidePlaceholders: Record<string, Record<string, unknown>> = {};
 
         for (const slideSpec of slides) {
           const slideId = slideSpec.slide_id as string | undefined;
@@ -273,6 +338,7 @@ Each item in the slides array should have a slide_id plus placeholder type keys:
           }
 
           let slideHadUpdates = false;
+          const slideUpdated: Record<string, unknown> = {};
 
           // Support both flat {slide_id, TITLE: ...} and nested {slide_id, content: {TITLE: ...}}
           let entries = Object.entries(slideSpec).filter(([k]) => k !== "slide_id");
@@ -281,26 +347,52 @@ Each item in the slides array should have a slide_id plus placeholder type keys:
           }
 
           for (const [key, newTextInput] of entries) {
-
+            const { type: placeholderType, index } = parsePlaceholderKey(key);
             const isArray = Array.isArray(newTextInput);
-            // Handle list content
-            const newText = isArray
-              ? newTextInput.join("\n")
-              : String(newTextInput);
-            const addBullets = isArray && key === "BODY";
+            const addBullets = isArray && placeholderType === "BODY";
 
             // Find matching placeholders
-            const elements = findPlaceholderElements(slide, key);
+            const elements = findPlaceholderElements(slide, placeholderType);
 
-            for (const element of elements) {
+            if (elements.length === 0) continue;
+
+            if (index !== undefined) {
+              // Indexed access: BODY_0, BODY_1, etc.
+              if (index < elements.length) {
+                const element = elements[index];
+                const newText = isArray ? (newTextInput as string[]).join("\n") : String(newTextInput);
+                requests.push(...buildTextReplacementRequests(element.object_id, newText, element.current_text, addBullets));
+                placeholdersUpdated++;
+                slideHadUpdates = true;
+                const bounds = getPlaceholderBounds(slide, element.object_id);
+                if (bounds) slideUpdated[key] = bounds;
+              }
+            } else if (isArray && elements.length > 1) {
+              // Array value with multiple matching placeholders: distribute
+              const items = newTextInput as string[];
+              for (let i = 0; i < Math.min(items.length, elements.length); i++) {
+                const element = elements[i];
+                requests.push(...buildTextReplacementRequests(element.object_id, items[i], element.current_text, addBullets));
+                placeholdersUpdated++;
+                slideHadUpdates = true;
+                const bounds = getPlaceholderBounds(slide, element.object_id);
+                if (bounds) slideUpdated[`${placeholderType}_${i}`] = bounds;
+              }
+            } else {
+              // String value or single placeholder: write to first only
+              const newText = isArray ? (newTextInput as string[]).join("\n") : String(newTextInput);
+              const element = elements[0];
               requests.push(...buildTextReplacementRequests(element.object_id, newText, element.current_text, addBullets));
               placeholdersUpdated++;
               slideHadUpdates = true;
+              const bounds = getPlaceholderBounds(slide, element.object_id);
+              if (bounds) slideUpdated[key] = bounds;
             }
           }
 
           if (slideHadUpdates) {
             slidesUpdated++;
+            slidePlaceholders[slideId] = slideUpdated;
           }
         }
 
@@ -316,6 +408,7 @@ Each item in the slides array should have a slide_id plus placeholder type keys:
               text: JSON.stringify({
                 slides_updated: slidesUpdated,
                 placeholders_updated: placeholdersUpdated,
+                slide_placeholders: slidePlaceholders,
                 errors,
               }, null, 2),
             },

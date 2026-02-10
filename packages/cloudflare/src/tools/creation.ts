@@ -9,9 +9,9 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SlidesClient } from "../api/slides-client.js";
 import type { TokenManager } from "../api/token-manager.js";
-import { inchesToEmu } from "../utils/units.js";
+import { inchesToEmu, emuToInches } from "../utils/units.js";
 import { hexToRgb } from "../utils/colors.js";
-import { SLIDE_SIZES, calculateAlignmentPosition } from "../utils/transforms.js";
+import { SLIDE_SIZES, calculateAlignmentPosition, extractElementBounds } from "../utils/transforms.js";
 
 /** Map user-facing alignment values to Google Slides API ParagraphStyle.Alignment enum. */
 function toApiAlignment(alignment: string): string {
@@ -54,7 +54,7 @@ export function registerCreationTools(
 
   server.tool(
     "create_slide",
-    `Create a new slide with the specified layout. Accepts either a predefined layout name (BLANK, TITLE, TITLE_AND_BODY, TITLE_AND_TWO_COLUMNS, TITLE_ONLY, SECTION_HEADER, ONE_COLUMN_TEXT, MAIN_POINT, BIG_NUMBER, CAPTION_ONLY) or a custom layout object ID from the presentation (use list_layouts to discover available layouts).`,
+    `Create a new slide with the specified layout. Returns placeholder positions and sizes in inches for spatial awareness when placing additional elements. Accepts either a predefined layout name (BLANK, TITLE, TITLE_AND_BODY, TITLE_AND_TWO_COLUMNS, TITLE_ONLY, SECTION_HEADER, ONE_COLUMN_TEXT, MAIN_POINT, BIG_NUMBER, CAPTION_ONLY) or a custom layout object ID from the presentation (use list_layouts to discover available layouts).`,
     {
       presentation_id: z.string().describe("The presentation to add the slide to"),
       layout: z.string().default("BLANK").describe("Predefined layout name or custom layout object ID"),
@@ -81,14 +81,45 @@ export function registerCreationTools(
 
         await client.batchUpdate(presentation_id, [request]);
 
-        // Get the created slide to find placeholder IDs
+        // Get the created slide to find placeholders with their bounds
         const slideInfo = await client.getPage(presentation_id, slideId);
-        const placeholderIds: Record<string, string> = {};
+        const placeholders: Array<{
+          type: string;
+          id: string;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        }> = [];
+
         for (const element of slideInfo.pageElements ?? []) {
           const placeholder = element.shape?.placeholder;
           if (placeholder) {
-            const placeholderType = placeholder.type ?? "UNKNOWN";
-            placeholderIds[placeholderType] = element.objectId ?? "";
+            const entry: {
+              type: string;
+              id: string;
+              x: number;
+              y: number;
+              width: number;
+              height: number;
+            } = {
+              type: placeholder.type ?? "UNKNOWN",
+              id: element.objectId ?? "",
+              x: 0,
+              y: 0,
+              width: 0,
+              height: 0,
+            };
+
+            if (element.size && element.transform) {
+              const bounds = extractElementBounds(element);
+              entry.x = Math.round(emuToInches(bounds.x) * 100) / 100;
+              entry.y = Math.round(emuToInches(bounds.y) * 100) / 100;
+              entry.width = Math.round(emuToInches(bounds.width) * 100) / 100;
+              entry.height = Math.round(emuToInches(bounds.height) * 100) / 100;
+            }
+
+            placeholders.push(entry);
           }
         }
 
@@ -98,7 +129,7 @@ export function registerCreationTools(
               type: "text" as const,
               text: JSON.stringify({
                 slide_id: slideId,
-                placeholder_ids: placeholderIds,
+                placeholders,
               }, null, 2),
             },
           ],
@@ -392,7 +423,11 @@ export function registerCreationTools(
           fields.push("shapeBackgroundFill");
         }
 
-        if (outline_color) {
+        if (outline_weight <= 0) {
+          // Zero or negative weight: suppress outline entirely
+          shapeProps.outline = { propertyState: "NOT_RENDERED" };
+          fields.push("outline");
+        } else if (outline_color) {
           shapeProps.outline = {
             outlineFill: {
               solidFill: { color: { rgbColor: hexToRgb(outline_color) } },

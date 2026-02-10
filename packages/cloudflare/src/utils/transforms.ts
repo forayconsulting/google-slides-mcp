@@ -195,16 +195,16 @@ export interface ElementBounds {
  * @throws Error if the element doesn't have transform or size information
  */
 export function extractElementBounds(pageElement: {
-  transform?: Record<string, unknown>;
+  transform?: { translateX?: number; translateY?: number; scaleX?: number; scaleY?: number };
   size?: {
     width?: { magnitude?: number };
     height?: { magnitude?: number };
   };
 }): ElementBounds {
-  const transform = pageElement.transform ?? {};
-  const size = pageElement.size ?? {};
+  const transform = pageElement.transform;
+  const size = pageElement.size;
 
-  if (Object.keys(transform).length === 0 || Object.keys(size).length === 0) {
+  if (!transform || !size) {
     throw new Error("Page element missing transform or size information");
   }
 

@@ -10,17 +10,18 @@ import { z } from "zod";
 import { SlidesClient } from "../api/slides-client.js";
 import type { TokenManager } from "../api/token-manager.js";
 import type { Page } from "../api/types.js";
-import { inchesToEmu } from "../utils/units.js";
+import { inchesToEmu, emuToInches } from "../utils/units.js";
 import { hexToRgb } from "../utils/colors.js";
+import { extractElementBounds } from "../utils/transforms.js";
 import {
   extractPresentationStyle,
   DEFAULT_STYLE,
   type PresentationStyle,
 } from "../utils/style.js";
 
-/** Field mask for style extraction — fetches master theme + slide elements for PPTX fallback. */
+/** Field mask for style extraction — fetches master theme + layouts + slide elements for PPTX fallback. */
 const STYLE_FIELDS =
-  "masters.pageProperties.colorScheme,masters.pageElements.shape.placeholder,masters.pageElements.shape.text.textElements.textRun.style,slides.pageElements.shape.shapeProperties.shapeBackgroundFill,slides.pageElements.shape.text.textElements.textRun.style,slides.pageElements.shape.placeholder";
+  "masters,layouts.pageProperties,layouts.pageElements.shape.shapeProperties,layouts.pageElements.shape.text.textElements.textRun.style,layouts.pageElements.shape.placeholder,slides.pageElements.shape.shapeProperties,slides.pageElements.shape.text.textElements.textRun.style,slides.pageElements.shape.placeholder";
 
 function generateId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).substring(2, 10)}`;
@@ -83,10 +84,19 @@ function findBestLayout(
   return withTitleNoBody ?? withTitle ?? layouts[0]?.objectId;
 }
 
+/** Content bounds representing the available area for content on a slide (in inches). */
+interface ContentBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * Shared helper: create a TITLE_ONLY slide (or use existing) and find the title placeholder.
  * Falls back to discovering custom layouts when predefined TITLE_ONLY is not available
  * (common with PPTX-converted presentations).
+ * Returns contentBounds: the available area below the title for content placement.
  */
 async function setupSlide(
   client: SlidesClient,
@@ -94,7 +104,7 @@ async function setupSlide(
   slideId: string | undefined,
   title: string,
   subtitle?: string
-): Promise<{ slideId: string; titlePlaceholderId?: string; subtitlePlaceholderId?: string }> {
+): Promise<{ slideId: string; titlePlaceholderId?: string; subtitlePlaceholderId?: string; contentBounds: ContentBounds }> {
   let actualSlideId: string;
 
   if (slideId) {
@@ -207,7 +217,31 @@ async function setupSlide(
     await client.batchUpdate(presentationId, requests);
   }
 
-  return { slideId: actualSlideId, titlePlaceholderId, subtitlePlaceholderId };
+  // Calculate content bounds: area below title for content placement
+  // Default slide: 10" x 5.625" with 0.5" side margins and 0.3" bottom margin
+  const slideW = 10;
+  const slideH = 5.625;
+  const marginX = 0.5;
+  const marginBottom = 0.3;
+  let contentY = 1.1; // default if no title found
+
+  if (titlePlaceholderId) {
+    const titleEl = page.pageElements?.find((el) => el.objectId === titlePlaceholderId);
+    if (titleEl?.size && titleEl?.transform) {
+      const bounds = extractElementBounds(titleEl);
+      const titleBottom = emuToInches(bounds.y + bounds.height);
+      contentY = Math.round((titleBottom + 0.1) * 100) / 100; // 0.1" gap below title
+    }
+  }
+
+  const contentBounds: ContentBounds = {
+    x: marginX,
+    y: contentY,
+    width: slideW - marginX * 2,
+    height: Math.round((slideH - contentY - marginBottom) * 100) / 100,
+  };
+
+  return { slideId: actualSlideId, titlePlaceholderId, subtitlePlaceholderId, contentBounds };
 }
 
 /**
@@ -323,7 +357,7 @@ export function registerCompositeTools(
         const style = extractPresentationStyle(presentation);
 
         // Create/setup slide with title
-        const { slideId: actualSlideId } = await setupSlide(
+        const { slideId: actualSlideId, contentBounds } = await setupSlide(
           client,
           presentation_id,
           slide_id,
@@ -331,12 +365,12 @@ export function registerCompositeTools(
           subtitle
         );
 
-        // Table layout
-        const tableX = 0.5;
-        const tableY = 1.1;
-        const tableW = 9.0;
+        // Table layout — positioned dynamically based on actual title height
+        const tableX = contentBounds.x;
+        const tableY = contentBounds.y;
+        const tableW = contentBounds.width;
         const rowCount = data.length;
-        const tableH = Math.min(4.2, Math.max(1.5, rowCount * 0.4));
+        const tableH = Math.min(contentBounds.height, Math.max(1.5, rowCount * 0.4));
 
         const tableId = generateId("table");
 
@@ -588,7 +622,7 @@ export function registerCompositeTools(
         const style = extractPresentationStyle(presentation);
 
         // Create/setup slide with title
-        const { slideId: actualSlideId } = await setupSlide(
+        const { slideId: actualSlideId, contentBounds } = await setupSlide(
           client,
           presentation_id,
           slide_id,
@@ -606,11 +640,11 @@ export function registerCompositeTools(
             : style.primary_color
         );
 
-        // Chart layout
-        const chartX = 0.5;
-        const chartY = 1.1;
-        const chartW = 9.0;
-        const chartH = 4.2;
+        // Chart layout — positioned dynamically based on actual title height
+        const chartX = contentBounds.x;
+        const chartY = contentBounds.y;
+        const chartW = contentBounds.width;
+        const chartH = contentBounds.height;
 
         const chartTitleHeight = chart_title ? 0.5 : 0;
         const valueLabelHeight = show_values ? 0.35 : 0;
@@ -967,18 +1001,18 @@ export function registerCompositeTools(
         const style = extractPresentationStyle(presentation);
 
         // Create/setup slide with title
-        const { slideId: actualSlideId } = await setupSlide(
+        const { slideId: actualSlideId, contentBounds } = await setupSlide(
           client,
           presentation_id,
           slide_id,
           title
         );
 
-        // Grid layout calculation
-        const contentX = 0.5;
-        const contentY = 1.1;
-        const contentW = 9.0;
-        const contentH = 4.2;
+        // Grid layout calculation — positioned dynamically based on actual title height
+        const contentX = contentBounds.x;
+        const contentY = contentBounds.y;
+        const contentW = contentBounds.width;
+        const contentH = contentBounds.height;
         const gap = 0.25;
 
         const count = metrics.length;

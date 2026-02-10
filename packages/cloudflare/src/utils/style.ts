@@ -85,8 +85,8 @@ function lightenColor(hex: string, amount: number): string {
  *
  * @param presentation - Presentation data (must include masters with
  *   pageProperties.colorScheme and pageElements with placeholder text styles).
- *   When slides are included (with shapeProperties and text styles), they are
- *   used as a fallback for PPTX-converted files with empty master color schemes.
+ *   When slides and layouts are included (with shapeProperties and text styles),
+ *   they are used as a fallback for PPTX-converted files with empty master color schemes.
  * @returns PresentationStyle with theme colors and fonts
  */
 export function extractPresentationStyle(
@@ -95,8 +95,8 @@ export function extractPresentationStyle(
   const master = presentation.masters?.[0];
   if (!master) {
     // No master at all — try slide sampling if slides are available
-    if (presentation.slides?.length) {
-      return extractStyleFromSlides(presentation.slides);
+    if (presentation.slides?.length || presentation.layouts?.length) {
+      return extractStyleFromSlides(presentation.slides ?? [], presentation.layouts ?? []);
     }
     return { ...DEFAULT_STYLE };
   }
@@ -129,9 +129,16 @@ export function extractPresentationStyle(
     };
   }
 
-  // Master color scheme is empty — fall back to slide sampling
-  if (presentation.slides?.length) {
-    const slideStyle = extractStyleFromSlides(presentation.slides);
+  // Master color scheme is empty — fall back to slide + layout sampling
+  // Build a partial themeColorMap from whatever the master has (may be incomplete)
+  const partialColorMap = extractColorMap(master);
+
+  if (presentation.slides?.length || presentation.layouts?.length) {
+    const slideStyle = extractStyleFromSlides(
+      presentation.slides ?? [],
+      presentation.layouts ?? [],
+      partialColorMap
+    );
     // Prefer master-level fonts if available
     if (fonts.heading) slideStyle.heading_font = fonts.heading;
     if (fonts.body) slideStyle.body_font = fonts.body;
@@ -152,22 +159,40 @@ export function extractPresentationStyle(
 }
 
 /**
- * Extract style by sampling colors and fonts from actual slide elements.
+ * Extract style by sampling colors and fonts from actual slide and layout elements.
+ *
+ * Priority: page backgrounds > element fills > text colors.
+ * Page backgrounds (e.g. maroon section dividers) are the most distinctive brand colors.
  */
-function extractStyleFromSlides(slides: Page[]): PresentationStyle {
+function extractStyleFromSlides(
+  slides: Page[],
+  layouts: Page[] = [],
+  themeColorMap: Record<string, string> = {}
+): PresentationStyle {
+  const pageBgCounts = new Map<string, number>();
   const colorCounts = new Map<string, number>();
   const textColorCounts = new Map<string, number>();
   const fontCounts = new Map<string, number>();
   const headingFontCounts = new Map<string, number>();
 
-  for (const slide of slides) {
-    for (const element of slide.pageElements ?? []) {
-      collectElementColors(element, colorCounts, textColorCounts);
+  // Scan both layouts and slides
+  const allPages = [...layouts, ...slides];
+  for (const page of allPages) {
+    // Collect page background colors (high confidence brand colors)
+    collectPageBackgrounds(page, pageBgCounts, themeColorMap);
+
+    for (const element of page.pageElements ?? []) {
+      collectElementColors(element, colorCounts, textColorCounts, themeColorMap);
       collectElementFonts(element, fontCounts, headingFontCounts);
     }
   }
 
   // Filter out generic colors and sort by frequency
+  const significantPageBgs = [...pageBgCounts.entries()]
+    .filter(([c]) => !GENERIC_COLORS.has(c))
+    .sort((a, b) => b[1] - a[1])
+    .map(([c]) => c);
+
   const significantColors = [...colorCounts.entries()]
     .filter(([c]) => !GENERIC_COLORS.has(c))
     .sort((a, b) => b[1] - a[1])
@@ -186,11 +211,17 @@ function extractStyleFromSlides(slides: Page[]): PresentationStyle {
     .sort((a, b) => b[1] - a[1])
     .map(([f]) => f);
 
+  // Merge all color sources: page backgrounds first (highest confidence), then element fills
+  const allSignificantColors = [
+    ...significantPageBgs,
+    ...significantColors.filter((c) => !significantPageBgs.includes(c)),
+  ];
+
   // Build style from sampled data
-  const primaryColor = significantColors[0] ?? DEFAULT_STYLE.primary_color;
-  const accentColors = significantColors.slice(1, 6);
+  const primaryColor = allSignificantColors[0] ?? DEFAULT_STYLE.primary_color;
+  const accentColors = allSignificantColors.slice(1, 6);
   // Pad accent colors if we don't have enough
-  while (accentColors.length < 5 && significantColors.length > 0) {
+  while (accentColors.length < 5 && allSignificantColors.length > 0) {
     accentColors.push(lightenColor(primaryColor, 0.2 + accentColors.length * 0.15));
   }
 
@@ -220,29 +251,66 @@ function extractStyleFromSlides(slides: Page[]): PresentationStyle {
 }
 
 /**
+ * Resolve an OpaqueColor to a hex string.
+ * Handles both rgbColor (direct) and themeColor (resolved via themeColorMap).
+ */
+function resolveOpaqueColor(
+  opaque: { rgbColor?: { red?: number; green?: number; blue?: number }; themeColor?: string } | undefined,
+  themeColorMap: Record<string, string>
+): string | undefined {
+  if (!opaque) return undefined;
+  if (opaque.rgbColor) {
+    return rgbToHex(opaque.rgbColor);
+  }
+  if (opaque.themeColor && themeColorMap[opaque.themeColor]) {
+    return themeColorMap[opaque.themeColor];
+  }
+  return undefined;
+}
+
+/**
+ * Collect page background colors from a page's pageProperties.
+ * These are high-confidence template colors (e.g. maroon section divider backgrounds).
+ */
+function collectPageBackgrounds(
+  page: Page,
+  bgColors: Map<string, number>,
+  themeColorMap: Record<string, string>
+): void {
+  const bgFill = page.pageProperties?.pageBackgroundFill;
+  const opaque = bgFill?.solidFill?.color?.opaqueColor;
+  const hex = resolveOpaqueColor(opaque, themeColorMap);
+  if (hex) {
+    bgColors.set(hex, (bgColors.get(hex) ?? 0) + 1);
+  }
+}
+
+/**
  * Collect background fill colors and text foreground colors from an element.
+ * Handles both rgbColor (direct values) and themeColor references (resolved via themeColorMap).
  */
 function collectElementColors(
   element: PageElement,
   bgColors: Map<string, number>,
-  textColors: Map<string, number>
+  textColors: Map<string, number>,
+  themeColorMap: Record<string, string> = {}
 ): void {
   // Shape background fill
   const bgFill = element.shape?.shapeProperties?.shapeBackgroundFill;
-  const bgRgb = bgFill?.solidFill?.color?.opaqueColor?.rgbColor;
-  if (bgRgb) {
-    const hex = rgbToHex(bgRgb);
-    bgColors.set(hex, (bgColors.get(hex) ?? 0) + 1);
+  const bgOpaque = bgFill?.solidFill?.color?.opaqueColor;
+  const bgHex = resolveOpaqueColor(bgOpaque, themeColorMap);
+  if (bgHex) {
+    bgColors.set(bgHex, (bgColors.get(bgHex) ?? 0) + 1);
   }
 
   // Text foreground colors
   const textElements = element.shape?.text?.textElements;
   if (textElements) {
     for (const te of textElements) {
-      const fgRgb = te.textRun?.style?.foregroundColor?.opaqueColor?.rgbColor;
-      if (fgRgb) {
-        const hex = rgbToHex(fgRgb);
-        textColors.set(hex, (textColors.get(hex) ?? 0) + 1);
+      const fgOpaque = te.textRun?.style?.foregroundColor?.opaqueColor;
+      const fgHex = resolveOpaqueColor(fgOpaque, themeColorMap);
+      if (fgHex) {
+        textColors.set(fgHex, (textColors.get(fgHex) ?? 0) + 1);
       }
     }
   }
