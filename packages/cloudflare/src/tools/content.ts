@@ -12,6 +12,14 @@ import type { TokenManager } from "../api/token-manager.js";
 import type { Page } from "../api/types.js";
 import { hexToRgb } from "../utils/colors.js";
 
+/**
+ * Unescape literal \n and \t sequences that LLMs sometimes double-escape
+ * in tool call parameters.
+ */
+function unescapeText(text: string): string {
+  return text.replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+}
+
 interface PlaceholderElement {
   object_id: string;
   placeholder_type: string;
@@ -56,7 +64,7 @@ function buildTextReplacementRequests(
   if (currentText.length > 0) {
     requests.push({ deleteText: { objectId, textRange: { type: "ALL" } } });
   }
-  requests.push({ insertText: { objectId, text: newText, insertionIndex: 0 } });
+  requests.push({ insertText: { objectId, text: unescapeText(newText), insertionIndex: 0 } });
   if (addBullets) {
     requests.push({
       createParagraphBullets: {
@@ -116,6 +124,15 @@ function buildStyleRequest(
   };
 }
 
+/** Map user-facing alignment values to Google Slides API ParagraphStyle.Alignment enum. */
+function toApiAlignment(alignment: string): string {
+  switch (alignment) {
+    case "LEFT": return "START";
+    case "RIGHT": return "END";
+    default: return alignment;
+  }
+}
+
 /**
  * Build updateParagraphStyle request.
  */
@@ -128,7 +145,7 @@ function buildParagraphStyleRequest(
   return {
     updateParagraphStyle: {
       objectId,
-      style: { alignment },
+      style: { alignment: toApiAlignment(alignment) },
       fields: "alignment",
       textRange: { type: "ALL" },
     },

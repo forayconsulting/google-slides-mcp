@@ -28,6 +28,20 @@ LAYOUT_TYPES = Literal[
 ]
 
 
+def _unescape_text(text: str) -> str:
+    """Unescape literal \\n and \\t sequences that LLMs sometimes double-escape."""
+    return text.replace("\\n", "\n").replace("\\t", "\t")
+
+
+def _to_api_alignment(alignment: str) -> str:
+    """Map user-facing alignment values to Google Slides API ParagraphStyle.Alignment enum."""
+    if alignment == "LEFT":
+        return "START"
+    if alignment == "RIGHT":
+        return "END"
+    return alignment
+
+
 def register_creation_tools(mcp: "FastMCP") -> None:
     """Register creation tools with the MCP application.
 
@@ -181,7 +195,7 @@ def register_creation_tools(mcp: "FastMCP") -> None:
             {
                 "insertText": {
                     "objectId": element_id,
-                    "text": text,
+                    "text": _unescape_text(text),
                     "insertionIndex": 0,
                 }
             },
@@ -206,7 +220,7 @@ def register_creation_tools(mcp: "FastMCP") -> None:
             {
                 "updateParagraphStyle": {
                     "objectId": element_id,
-                    "style": {"alignment": alignment},
+                    "style": {"alignment": _to_api_alignment(alignment)},
                     "fields": "alignment",
                     "textRange": {"type": "ALL"},
                 }

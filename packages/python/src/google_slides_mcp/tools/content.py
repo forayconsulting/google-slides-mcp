@@ -71,6 +71,11 @@ def _find_all_placeholders(slide: dict) -> list[dict]:
     return results
 
 
+def _unescape_text(text: str) -> str:
+    """Unescape literal \\n and \\t sequences that LLMs sometimes double-escape."""
+    return text.replace("\\n", "\n").replace("\\t", "\t")
+
+
 def _build_text_replacement_requests(
     object_id: str,
     new_text: str,
@@ -95,7 +100,7 @@ def _build_text_replacement_requests(
             {"deleteText": {"objectId": object_id, "textRange": {"type": "ALL"}}}
         )
     requests.append(
-        {"insertText": {"objectId": object_id, "text": new_text, "insertionIndex": 0}}
+        {"insertText": {"objectId": object_id, "text": _unescape_text(new_text), "insertionIndex": 0}}
     )
     if add_bullets:
         requests.append(
@@ -165,6 +170,15 @@ def _build_style_request(
     }
 
 
+def _to_api_alignment(alignment: str) -> str:
+    """Map user-facing alignment values to Google Slides API ParagraphStyle.Alignment enum."""
+    if alignment == "LEFT":
+        return "START"
+    if alignment == "RIGHT":
+        return "END"
+    return alignment
+
+
 def _build_paragraph_style_request(
     object_id: str,
     alignment: str | None = None,
@@ -184,7 +198,7 @@ def _build_paragraph_style_request(
     return {
         "updateParagraphStyle": {
             "objectId": object_id,
-            "style": {"alignment": alignment},
+            "style": {"alignment": _to_api_alignment(alignment)},
             "fields": "alignment",
             "textRange": {"type": "ALL"},
         }

@@ -156,11 +156,8 @@ export class SlidesClient {
     pageId: string,
     mimeType: "PNG" | "JPEG" = "PNG"
   ): Promise<Thumbnail> {
-    const thumbnailProperties = encodeURIComponent(
-      `thumbnailProperties.mimeType=${mimeType}`
-    );
     return this.request<Thumbnail>(
-      `/presentations/${presentationId}/pages/${pageId}/thumbnail?${thumbnailProperties}`
+      `/presentations/${presentationId}/pages/${pageId}/thumbnail?thumbnailProperties.mimeType=${mimeType}`
     );
   }
 }

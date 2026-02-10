@@ -13,6 +13,23 @@ import { inchesToEmu } from "../utils/units.js";
 import { hexToRgb } from "../utils/colors.js";
 import { SLIDE_SIZES, calculateAlignmentPosition } from "../utils/transforms.js";
 
+/** Map user-facing alignment values to Google Slides API ParagraphStyle.Alignment enum. */
+function toApiAlignment(alignment: string): string {
+  switch (alignment) {
+    case "LEFT": return "START";
+    case "RIGHT": return "END";
+    default: return alignment;
+  }
+}
+
+/**
+ * Unescape literal \n and \t sequences that LLMs sometimes double-escape
+ * in tool call parameters.
+ */
+function unescapeText(text: string): string {
+  return text.replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+}
+
 function generateId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).substring(2, 10)}`;
 }
@@ -147,7 +164,7 @@ export function registerCreationTools(
           {
             insertText: {
               objectId: elementId,
-              text,
+              text: unescapeText(text),
               insertionIndex: 0,
             },
           },
@@ -172,7 +189,7 @@ export function registerCreationTools(
           {
             updateParagraphStyle: {
               objectId: elementId,
-              style: { alignment },
+              style: { alignment: toApiAlignment(alignment) },
               fields: "alignment",
               textRange: { type: "ALL" },
             },
