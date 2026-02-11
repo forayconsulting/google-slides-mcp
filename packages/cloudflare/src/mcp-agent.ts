@@ -81,7 +81,7 @@ When asked to create a presentation from source materials (transcripts, SOWs, br
 - Tables cannot be repositioned after creation. If a table needs to be at a specific position, set x/y/width/height in the create call correctly the first time.
 - create_slide insertion_index is 0-based. Use list_slides to check current count before inserting.
 - For PPTX templates, predefined layout names (TITLE_ONLY, BLANK) may not work. Use list_layouts to discover available layout IDs.
-- Do NOT attempt to position_element on tables — it will fail silently. Delete and recreate instead.
+- Do NOT attempt to position_element on tables — it will return an error. Delete and recreate instead.
 - When building multi-slide decks, build all slides sequentially. Do not skip inspect_slide verification.
 
 ## Suggested Slide Structures

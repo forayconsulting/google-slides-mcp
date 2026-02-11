@@ -443,7 +443,7 @@ add_table(
   slide_id: string,
   data: string[][],      // 2D array — first row is header
   header_row?: boolean,  // Style first row as header (default true)
-  header_color?: string, // Header background hex (default "#1a73e8")
+  header_color?: string, // Header background hex (default "#054950")
   alternate_row_color?: string,  // Zebra stripe color
   border_color?: string, // Border hex
   font_size?: number,    // Body font size (default 12)
@@ -462,7 +462,7 @@ add_bar_chart(
   labels: string[],      // Category labels
   values: number[],      // Numeric values
   title?: string,        // Chart title
-  color?: string,        // Bar fill color (default "#1a73e8")
+  color?: string,        // Bar fill color (default "#054950")
   show_values?: boolean, // Show value labels above bars
   bar_color_scale?: string[],  // Per-bar colors
   x?: number, y?: number,
@@ -480,7 +480,7 @@ add_stat_callout(
   stat_value: string,    // "3.5M", "99.9%"
   label: string,         // "Active Users"
   description?: string,  // "Up 25% YoY"
-  color?: string,        // Accent color (default "#1a73e8")
+  color?: string,        // Accent color (default "#054950")
   background_color?: string,  // Card background
   stat_font_size?: number,    // Default 48
   x?: number, y?: number,

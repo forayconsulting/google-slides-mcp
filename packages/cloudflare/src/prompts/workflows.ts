@@ -466,6 +466,6 @@ For fine-grained control, use \`batch_update\` with \`updateTextStyle\` requests
 ## Notes
 - \`apply_text_style\` works on placeholder types, not individual elements
 - For background colors or non-text elements, use \`batch_update\`
-- Color values should be hex format (e.g., "#1a73e8")
+- Color values should be hex format (e.g., "#054950")
 `;
 }

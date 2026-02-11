@@ -48,7 +48,7 @@ google-slides-mcp/
 ├── packages/
 │   ├── python/                 # Python FastMCP implementation
 │   │   ├── src/google_slides_mcp/
-│   │   │   ├── tools/          # All 22 MCP tools
+│   │   │   ├── tools/          # All 31 MCP tools
 │   │   │   └── prompts/        # Workflow and discovery prompts
 │   │   ├── scripts/
 │   │   ├── tests/

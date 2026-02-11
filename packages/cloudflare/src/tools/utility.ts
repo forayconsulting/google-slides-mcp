@@ -31,7 +31,10 @@ export function registerUtilityTools(
     },
     async ({ presentation_id }) => {
       try {
-        const presentation = await client.getPresentation(presentation_id);
+        const presentation = await client.getPresentation(
+          presentation_id,
+          "slides(objectId,pageElements(objectId,shape(shapeType,placeholder,text)))"
+        );
 
         const slidesInfo = (presentation.slides ?? []).map((slide, i) => {
           const slideId = slide.objectId ?? "";
@@ -97,7 +100,10 @@ export function registerUtilityTools(
     },
     async ({ presentation_id, element_id }) => {
       try {
-        const presentation = await client.getPresentation(presentation_id);
+        const presentation = await client.getPresentation(
+          presentation_id,
+          "slides(objectId,pageElements)"
+        );
 
         // Find the element
         let element: Record<string, unknown> | null = null;

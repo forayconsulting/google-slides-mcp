@@ -45,7 +45,10 @@ export function registerPositioningTools(
     },
     async ({ presentation_id, element_id, x, y, width, height, horizontal_align, vertical_align }) => {
       try {
-        const presentation = await client.getPresentation(presentation_id);
+        const presentation = await client.getPresentation(
+          presentation_id,
+          "pageSize,slides(objectId,pageElements(objectId,size,transform))"
+        );
 
         // Find the element
         let element: Record<string, unknown> | null = null;
@@ -179,7 +182,10 @@ export function registerPositioningTools(
     },
     async ({ presentation_id, element_ids, direction, spacing }) => {
       try {
-        const presentation = await client.getPresentation(presentation_id);
+        const presentation = await client.getPresentation(
+          presentation_id,
+          "pageSize,slides(objectId,pageElements(objectId,size,transform))"
+        );
 
         // Get slide size
         let slideSize: SlideSize = SLIDE_SIZES["16:9"];
@@ -312,7 +318,10 @@ export function registerPositioningTools(
     },
     async ({ presentation_id, element_ids, alignment, reference }) => {
       try {
-        const presentation = await client.getPresentation(presentation_id);
+        const presentation = await client.getPresentation(
+          presentation_id,
+          "pageSize,slides(objectId,pageElements(objectId,size,transform))"
+        );
 
         // Get slide size
         let slideSize: SlideSize = SLIDE_SIZES["16:9"];

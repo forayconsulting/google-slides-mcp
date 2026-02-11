@@ -33,7 +33,7 @@ export function registerDecorationTools(
     {
       presentation_id: z.string().describe("The presentation ID"),
       slide_id: z.string().describe("The slide to update"),
-      color: z.string().optional().describe("Background color hex (e.g., '#1a73e8'). Mutually exclusive with image_url"),
+      color: z.string().optional().describe("Background color hex (e.g., '#054950'). Mutually exclusive with image_url"),
       image_url: z.string().optional().describe("Background image URL (stretched to fill). Mutually exclusive with color"),
     },
     async ({ presentation_id, slide_id, color, image_url }) => {

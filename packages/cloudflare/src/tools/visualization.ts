@@ -258,8 +258,9 @@ export function registerVisualizationTools(
       height: z.number().default(4.0).describe("Total chart height in inches"),
       show_values: z.boolean().default(true).describe("Show value labels above bars"),
       bar_color_scale: z.array(z.string()).optional().describe("Per-bar colors (overrides color)"),
+      font_family: z.string().default("Nunito Sans").describe("Font family for text elements"),
     },
-    async ({ presentation_id, slide_id, labels, values, title, color, x, y, width, height, show_values, bar_color_scale }) => {
+    async ({ presentation_id, slide_id, labels, values, title, color, x, y, width, height, show_values, bar_color_scale, font_family }) => {
       try {
         // Validate
         if (labels.length !== values.length) {
@@ -340,13 +341,22 @@ export function registerVisualizationTools(
               updateTextStyle: {
                 objectId: titleId,
                 style: {
-                  fontFamily: "Arial",
+                  fontFamily: font_family,
                   fontSize: { magnitude: 16, unit: "PT" },
                   bold: true,
                   foregroundColor: { opaqueColor: { rgbColor: hexToRgb("#333333") } },
                 },
                 fields: "fontFamily,fontSize,bold,foregroundColor",
                 textRange: { type: "ALL" },
+              },
+            },
+            {
+              updateShapeProperties: {
+                objectId: titleId,
+                shapeProperties: {
+                  autofit: { autofitType: "TEXT_AUTOFIT" },
+                },
+                fields: "autofit.autofitType",
               },
             },
             {
@@ -440,13 +450,22 @@ export function registerVisualizationTools(
                 updateTextStyle: {
                   objectId: valLabelId,
                   style: {
-                    fontFamily: "Arial",
+                    fontFamily: font_family,
                     fontSize: { magnitude: 10, unit: "PT" },
                     bold: true,
                     foregroundColor: { opaqueColor: { rgbColor: hexToRgb("#555555") } },
                   },
                   fields: "fontFamily,fontSize,bold,foregroundColor",
                   textRange: { type: "ALL" },
+                },
+              },
+              {
+                updateShapeProperties: {
+                  objectId: valLabelId,
+                  shapeProperties: {
+                    autofit: { autofitType: "TEXT_AUTOFIT" },
+                  },
+                  fields: "autofit.autofitType",
                 },
               },
               {
@@ -495,12 +514,21 @@ export function registerVisualizationTools(
               updateTextStyle: {
                 objectId: catLabelId,
                 style: {
-                  fontFamily: "Arial",
+                  fontFamily: font_family,
                   fontSize: { magnitude: 10, unit: "PT" },
                   foregroundColor: { opaqueColor: { rgbColor: hexToRgb("#666666") } },
                 },
                 fields: "fontFamily,fontSize,foregroundColor",
                 textRange: { type: "ALL" },
+              },
+            },
+            {
+              updateShapeProperties: {
+                objectId: catLabelId,
+                shapeProperties: {
+                  autofit: { autofitType: "TEXT_AUTOFIT" },
+                },
+                fields: "autofit.autofitType",
               },
             },
             {
@@ -556,8 +584,9 @@ export function registerVisualizationTools(
       background_color: z.string().optional().describe("Card background color (null = transparent)"),
       stat_font_size: z.number().default(48).describe("Stat value font size in points"),
       label_font_size: z.number().default(14).describe("Label font size in points"),
+      font_family: z.string().default("Nunito Sans").describe("Font family for text elements"),
     },
-    async ({ presentation_id, slide_id, stat_value, label, description, x, y, width, height, color, background_color, stat_font_size, label_font_size }) => {
+    async ({ presentation_id, slide_id, stat_value, label, description, x, y, width, height, color, background_color, stat_font_size, label_font_size, font_family }) => {
       try {
         const requests: Record<string, unknown>[] = [];
         const elementIds: string[] = [];
@@ -642,13 +671,22 @@ export function registerVisualizationTools(
             updateTextStyle: {
               objectId: statId,
               style: {
-                fontFamily: "Arial",
+                fontFamily: font_family,
                 fontSize: { magnitude: stat_font_size, unit: "PT" },
                 bold: true,
                 foregroundColor: { opaqueColor: { rgbColor: hexToRgb(color) } },
               },
               fields: "fontFamily,fontSize,bold,foregroundColor",
               textRange: { type: "ALL" },
+            },
+          },
+          {
+            updateShapeProperties: {
+              objectId: statId,
+              shapeProperties: {
+                autofit: { autofitType: "TEXT_AUTOFIT" },
+              },
+              fields: "autofit.autofitType",
             },
           },
           {
@@ -696,12 +734,21 @@ export function registerVisualizationTools(
             updateTextStyle: {
               objectId: labelId,
               style: {
-                fontFamily: "Arial",
+                fontFamily: font_family,
                 fontSize: { magnitude: label_font_size, unit: "PT" },
                 foregroundColor: { opaqueColor: { rgbColor: hexToRgb("#666666") } },
               },
               fields: "fontFamily,fontSize,foregroundColor",
               textRange: { type: "ALL" },
+            },
+          },
+          {
+            updateShapeProperties: {
+              objectId: labelId,
+              shapeProperties: {
+                autofit: { autofitType: "TEXT_AUTOFIT" },
+              },
+              fields: "autofit.autofitType",
             },
           },
           {
@@ -750,13 +797,22 @@ export function registerVisualizationTools(
               updateTextStyle: {
                 objectId: descId,
                 style: {
-                  fontFamily: "Arial",
+                  fontFamily: font_family,
                   fontSize: { magnitude: 11, unit: "PT" },
                   italic: true,
                   foregroundColor: { opaqueColor: { rgbColor: hexToRgb("#999999") } },
                 },
                 fields: "fontFamily,fontSize,italic,foregroundColor",
                 textRange: { type: "ALL" },
+              },
+            },
+            {
+              updateShapeProperties: {
+                objectId: descId,
+                shapeProperties: {
+                  autofit: { autofitType: "TEXT_AUTOFIT" },
+                },
+                fields: "autofit.autofitType",
               },
             },
             {
