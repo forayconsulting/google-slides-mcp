@@ -374,6 +374,59 @@ def register_utility_tools(mcp: "FastMCP") -> None:
         return result
 
     @mcp.tool()
+    async def list_layouts(
+        ctx: Context,
+        presentation_id: str,
+    ) -> list[dict]:
+        """List all available slide layouts in a presentation with their IDs, names, and placeholder types.
+
+        Useful for PPTX-converted presentations where predefined layout names may not work.
+
+        Args:
+            presentation_id: The presentation to list layouts from
+
+        Returns:
+            List of layout info dictionaries with:
+            - layout_id: The layout's object ID
+            - name: Internal layout name
+            - display_name: Human-readable display name
+            - placeholder_types: List of placeholder types in the layout
+        """
+        from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
+        from google_slides_mcp.services.slides_service import SlidesService
+
+        middleware = GoogleAuthMiddleware()
+        credentials = await middleware.extract_credentials(ctx)
+        service = SlidesService(credentials)
+
+        presentation = await service.get_presentation(
+            presentation_id,
+            fields="layouts(objectId,layoutProperties,pageElements.shape.placeholder)",
+        )
+
+        layouts_info = []
+        for layout in presentation.get("layouts", []):
+            layout_id = layout.get("objectId", "")
+            props = layout.get("layoutProperties", {})
+            name = props.get("name", "")
+            display_name = props.get("displayName", "")
+
+            placeholder_types = []
+            for element in layout.get("pageElements", []):
+                p_type = element.get("shape", {}).get("placeholder", {}).get("type")
+                if p_type:
+                    placeholder_types.append(p_type)
+
+            layouts_info.append({
+                "layout_id": layout_id,
+                "name": name,
+                "display_name": display_name,
+                "placeholder_types": placeholder_types,
+            })
+
+        return layouts_info
+
+    @mcp.tool()
     async def export_thumbnail(
         ctx: Context,
         presentation_id: str,

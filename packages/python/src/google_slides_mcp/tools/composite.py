@@ -37,6 +37,51 @@ def _generate_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 
+def _find_best_layout(layouts: list[dict], desired_type: str = "TITLE_ONLY") -> str | None:
+    """Find the best matching layout from a list of presentation layouts."""
+    if not layouts:
+        return None
+
+    title_only = None
+    title_no_body = None
+    with_title = None
+
+    for layout in layouts:
+        has_title = False
+        has_body = False
+        other_count = 0
+        for el in layout.get("pageElements", []):
+            p_type = el.get("shape", {}).get("placeholder", {}).get("type")
+            if not p_type:
+                continue
+            if p_type in ("TITLE", "CENTERED_TITLE"):
+                has_title = True
+            elif p_type in ("BODY", "SUBTITLE"):
+                has_body = True
+            else:
+                other_count += 1
+
+        if desired_type == "TITLE_ONLY" and has_title and not has_body and other_count == 0:
+            title_only = layout.get("objectId")
+            break
+        if desired_type == "TITLE_ONLY" and has_title and not has_body and not title_no_body:
+            title_no_body = layout.get("objectId")
+        if has_title and not with_title:
+            with_title = layout.get("objectId")
+
+    if desired_type == "BLANK":
+        blank = next(
+            (l for l in layouts if all(
+                not el.get("shape", {}).get("placeholder")
+                for el in l.get("pageElements", [])
+            )),
+            None,
+        )
+        return blank.get("objectId") if blank else (layouts[0].get("objectId") if layouts else None)
+
+    return title_only or title_no_body or with_title or (layouts[0].get("objectId") if layouts else None)
+
+
 async def _setup_slide(
     service,
     presentation_id: str,
@@ -49,14 +94,31 @@ async def _setup_slide(
         actual_slide_id = slide_id
     else:
         actual_slide_id = _generate_id("slide")
-        await service.batch_update(presentation_id, [
-            {
-                "createSlide": {
-                    "objectId": actual_slide_id,
-                    "slideLayoutReference": {"predefinedLayout": "TITLE_ONLY"},
+        try:
+            await service.batch_update(presentation_id, [
+                {
+                    "createSlide": {
+                        "objectId": actual_slide_id,
+                        "slideLayoutReference": {"predefinedLayout": "TITLE_ONLY"},
+                    }
                 }
-            }
-        ])
+            ])
+        except Exception:
+            # Predefined layout failed (e.g. PPTX template) — discover layouts
+            presentation = await service.get_presentation(
+                presentation_id,
+                fields="layouts(objectId,layoutProperties,pageElements.shape.placeholder)",
+            )
+            layout_id = _find_best_layout(presentation.get("layouts", []))
+            layout_ref: dict = {"layoutId": layout_id} if layout_id else {"predefinedLayout": "BLANK"}
+            await service.batch_update(presentation_id, [
+                {
+                    "createSlide": {
+                        "objectId": actual_slide_id,
+                        "slideLayoutReference": layout_ref,
+                    }
+                }
+            ])
 
     # Get page to find placeholders
     page = await service.get_page(presentation_id, actual_slide_id)

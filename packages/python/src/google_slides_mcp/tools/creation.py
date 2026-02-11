@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 # Predefined slide layouts
-LAYOUT_TYPES = Literal[
+PREDEFINED_LAYOUTS = {
     "BLANK",
     "TITLE",
     "TITLE_AND_BODY",
@@ -25,7 +25,7 @@ LAYOUT_TYPES = Literal[
     "MAIN_POINT",
     "BIG_NUMBER",
     "CAPTION_ONLY",
-]
+}
 
 
 def _unescape_text(text: str) -> str:
@@ -53,14 +53,15 @@ def register_creation_tools(mcp: "FastMCP") -> None:
     async def create_slide(
         ctx: Context,
         presentation_id: str,
-        layout: LAYOUT_TYPES = "BLANK",
+        layout: str = "BLANK",
         insertion_index: int | None = None,
     ) -> dict:
         """Create a new slide with the specified layout.
 
         Args:
             presentation_id: The presentation to add the slide to
-            layout: The layout type for the new slide
+            layout: Predefined layout name (BLANK, TITLE, TITLE_AND_BODY, etc.)
+                or a custom layout object ID from the template
             insertion_index: Position to insert (None = append at end)
 
         Returns:
@@ -75,29 +76,22 @@ def register_creation_tools(mcp: "FastMCP") -> None:
         credentials = await middleware.extract_credentials(ctx)
         service = SlidesService(credentials)
 
-        # Get presentation to find the layout
-        presentation = await service.get_presentation(presentation_id)
-
-        # Find matching layout
-        layout_id = None
-        for layout_obj in presentation.get("layouts", []):
-            layout_props = layout_obj.get("layoutProperties", {})
-            if layout_props.get("name", "").upper() == layout:
-                layout_id = layout_obj.get("objectId")
-                break
-
         # Generate a unique ID for the new slide
         slide_id = f"slide_{uuid.uuid4().hex[:8]}"
+
+        # Determine layout reference
+        if layout in PREDEFINED_LAYOUTS:
+            layout_ref: dict = {"predefinedLayout": layout}
+        else:
+            # Treat as a custom layout object ID
+            layout_ref = {"layoutId": layout}
 
         request: dict = {
             "createSlide": {
                 "objectId": slide_id,
-                "slideLayoutReference": {"predefinedLayout": layout},
+                "slideLayoutReference": layout_ref,
             }
         }
-
-        if layout_id:
-            request["createSlide"]["slideLayoutReference"] = {"layoutId": layout_id}
 
         if insertion_index is not None:
             request["createSlide"]["insertionIndex"] = insertion_index
@@ -129,7 +123,7 @@ def register_creation_tools(mcp: "FastMCP") -> None:
         width: float = 4.0,
         height: float = 1.0,
         font_size: int = 18,
-        font_family: str = "Arial",
+        font_family: str = "Nunito Sans",
         bold: bool = False,
         italic: bool = False,
         color: str = "#000000",
@@ -232,22 +226,25 @@ def register_creation_tools(mcp: "FastMCP") -> None:
             },
         ]
 
-        # Apply autofit if requested
+        await service.batch_update(presentation_id, requests)
+
+        # Apply autofit in a separate call — may fail on PPTX templates
         if autofit != "none":
             autofit_type = "TEXT_AUTOFIT" if autofit == "shrink_text" else "SHAPE_AUTOFIT"
-            requests.append({
-                "updateShapeProperties": {
-                    "objectId": element_id,
-                    "shapeProperties": {
-                        "autofit": {
-                            "autofitType": autofit_type,
+            try:
+                await service.batch_update(presentation_id, [{
+                    "updateShapeProperties": {
+                        "objectId": element_id,
+                        "shapeProperties": {
+                            "autofit": {
+                                "autofitType": autofit_type,
+                            },
                         },
-                    },
-                    "fields": "autofit.autofitType",
-                }
-            })
-
-        await service.batch_update(presentation_id, requests)
+                        "fields": "autofit.autofitType",
+                    }
+                }])
+            except Exception:
+                pass  # Text box already created; autofit not supported on this template
 
         return {"element_id": element_id}
 

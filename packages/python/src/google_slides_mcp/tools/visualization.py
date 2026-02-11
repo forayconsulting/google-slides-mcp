@@ -45,13 +45,13 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
         width: float = 9.0,
         height: float = 3.5,
         header_row: bool = True,
-        header_color: str = "#1a73e8",
+        header_color: str = "#054950",
         header_text_color: str = "#FFFFFF",
         alternate_row_color: str | None = None,
         border_color: str = "#DADCE0",
         border_weight: float = 0.5,
         font_size: int = 12,
-        font_family: str = "Arial",
+        font_family: str = "Nunito Sans",
     ) -> dict:
         """Create a styled data table on a slide.
 
@@ -235,13 +235,14 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
         labels: list[str],
         values: list[float],
         title: str | None = None,
-        color: str = "#1a73e8",
+        color: str = "#054950",
         x: float = 0.5,
         y: float = 0.8,
         width: float = 9.0,
         height: float = 4.0,
         show_values: bool = True,
         bar_color_scale: list[str] | None = None,
+        font_family: str = "Nunito Sans",
     ) -> dict:
         """Create a bar chart using shapes. No Google Sheets dependency.
 
@@ -260,6 +261,7 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
             height: Total chart height in inches
             show_values: Show value labels above bars
             bar_color_scale: Per-bar colors (overrides color)
+            font_family: Font family for all text elements
 
         Returns:
             Dictionary with element_ids and bar_count
@@ -334,10 +336,10 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
                     "updateTextStyle": {
                         "objectId": title_id,
                         "style": {
-                            "fontFamily": "Arial",
+                            "fontFamily": font_family,
                             "fontSize": {"magnitude": 16, "unit": "PT"},
                             "bold": True,
-                            "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb("#333333")}},
+                            "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb("#054950")}},
                         },
                         "fields": "fontFamily,fontSize,bold,foregroundColor",
                         "textRange": {"type": "ALL"},
@@ -432,10 +434,10 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
                         "updateTextStyle": {
                             "objectId": val_label_id,
                             "style": {
-                                "fontFamily": "Arial",
+                                "fontFamily": font_family,
                                 "fontSize": {"magnitude": 10, "unit": "PT"},
                                 "bold": True,
-                                "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb("#555555")}},
+                                "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb("#3C4043")}},
                             },
                             "fields": "fontFamily,fontSize,bold,foregroundColor",
                             "textRange": {"type": "ALL"},
@@ -486,9 +488,9 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
                     "updateTextStyle": {
                         "objectId": cat_label_id,
                         "style": {
-                            "fontFamily": "Arial",
+                            "fontFamily": font_family,
                             "fontSize": {"magnitude": 10, "unit": "PT"},
-                            "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb("#666666")}},
+                            "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb("#5F6368")}},
                         },
                         "fields": "fontFamily,fontSize,foregroundColor",
                         "textRange": {"type": "ALL"},
@@ -523,10 +525,11 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
         y: float = 1.0,
         width: float = 2.5,
         height: float = 2.0,
-        color: str = "#1a73e8",
+        color: str = "#054950",
         background_color: str | None = None,
         stat_font_size: int = 48,
         label_font_size: int = 14,
+        font_family: str = "Nunito Sans",
     ) -> dict:
         """Create a KPI/metric display card with a large stat value, label, and optional description.
 
@@ -546,6 +549,7 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
             background_color: Card background color (None = transparent)
             stat_font_size: Stat value font size in points
             label_font_size: Label font size in points
+            font_family: Font family for all text elements
 
         Returns:
             Dictionary with element_ids
@@ -640,7 +644,7 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
                 "updateTextStyle": {
                     "objectId": stat_id,
                     "style": {
-                        "fontFamily": "Arial",
+                        "fontFamily": font_family,
                         "fontSize": {"magnitude": stat_font_size, "unit": "PT"},
                         "bold": True,
                         "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb(color)}},
@@ -694,9 +698,9 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
                 "updateTextStyle": {
                     "objectId": label_id,
                     "style": {
-                        "fontFamily": "Arial",
+                        "fontFamily": font_family,
                         "fontSize": {"magnitude": label_font_size, "unit": "PT"},
-                        "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb("#666666")}},
+                        "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb("#5F6368")}},
                     },
                     "fields": "fontFamily,fontSize,foregroundColor",
                     "textRange": {"type": "ALL"},
@@ -748,10 +752,10 @@ def register_visualization_tools(mcp: "FastMCP") -> None:
                     "updateTextStyle": {
                         "objectId": desc_id,
                         "style": {
-                            "fontFamily": "Arial",
+                            "fontFamily": font_family,
                             "fontSize": {"magnitude": 11, "unit": "PT"},
                             "italic": True,
-                            "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb("#999999")}},
+                            "foregroundColor": {"opaqueColor": {"rgbColor": hex_to_rgb("#80868B")}},
                         },
                         "fields": "fontFamily,fontSize,italic,foregroundColor",
                         "textRange": {"type": "ALL"},
