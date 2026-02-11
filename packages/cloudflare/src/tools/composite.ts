@@ -53,20 +53,31 @@ function findBestLayout(
 ): string | undefined {
   if (!layouts || layouts.length === 0) return undefined;
 
-  let withTitleNoBody: string | undefined;
-  let withTitle: string | undefined;
+  let titleOnly: string | undefined; // TITLE and zero other placeholders (best)
+  let titleNoBody: string | undefined; // TITLE but no BODY/SUBTITLE; may have IMAGE
+  let withTitle: string | undefined; // any layout with TITLE (fallback)
 
   for (const layout of layouts) {
     let hasTitle = false;
     let hasBody = false;
+    let otherPlaceholderCount = 0;
     for (const el of layout.pageElements ?? []) {
       const pType = el.shape?.placeholder?.type;
-      if (pType === "TITLE" || pType === "CENTERED_TITLE") hasTitle = true;
-      if (pType === "BODY" || pType === "SUBTITLE") hasBody = true;
+      if (!pType) continue;
+      if (pType === "TITLE" || pType === "CENTERED_TITLE") {
+        hasTitle = true;
+      } else if (pType === "BODY" || pType === "SUBTITLE") {
+        hasBody = true;
+      } else {
+        otherPlaceholderCount++;
+      }
     }
-    if (desiredType === "TITLE_ONLY" && hasTitle && !hasBody) {
-      withTitleNoBody = layout.objectId;
-      break;
+    if (desiredType === "TITLE_ONLY" && hasTitle && !hasBody && otherPlaceholderCount === 0) {
+      titleOnly = layout.objectId;
+      break; // Best possible match
+    }
+    if (desiredType === "TITLE_ONLY" && hasTitle && !hasBody && !titleNoBody) {
+      titleNoBody = layout.objectId;
     }
     if (hasTitle && !withTitle) {
       withTitle = layout.objectId;
@@ -81,7 +92,7 @@ function findBestLayout(
     return blank?.objectId ?? layouts[0]?.objectId;
   }
 
-  return withTitleNoBody ?? withTitle ?? layouts[0]?.objectId;
+  return titleOnly ?? titleNoBody ?? withTitle ?? layouts[0]?.objectId;
 }
 
 /** Content bounds representing the available area for content on a slide (in inches). */
@@ -103,7 +114,8 @@ async function setupSlide(
   presentationId: string,
   slideId: string | undefined,
   title: string,
-  subtitle?: string
+  subtitle?: string,
+  backgroundColor?: string
 ): Promise<{ slideId: string; titlePlaceholderId?: string; subtitlePlaceholderId?: string; contentBounds: ContentBounds }> {
   let actualSlideId: string;
 
@@ -157,6 +169,20 @@ async function setupSlide(
     }
   }
 
+  // Delete non-title/subtitle elements (IMAGE placeholders, BODY, decorative shapes)
+  // These are slide-level copies of layout placeholders — layout/master decorations
+  // (backgrounds, logos) are NOT in pageElements and won't be affected.
+  const keepIds = new Set<string>();
+  if (titlePlaceholderId) keepIds.add(titlePlaceholderId);
+  if (subtitlePlaceholderId) keepIds.add(subtitlePlaceholderId);
+
+  const deleteRequests: Record<string, unknown>[] = [];
+  for (const element of page.pageElements ?? []) {
+    if (element.objectId && !keepIds.has(element.objectId)) {
+      deleteRequests.push({ deleteObject: { objectId: element.objectId } });
+    }
+  }
+
   // Set the title via placeholder (preserves template styling)
   const requests: Record<string, unknown>[] = [];
 
@@ -183,6 +209,16 @@ async function setupSlide(
         objectId: titlePlaceholderId,
         text: unescapeText(title),
         insertionIndex: 0,
+      },
+    });
+    // Auto-shrink long titles so they don't truncate
+    requests.push({
+      updateShapeProperties: {
+        objectId: titlePlaceholderId,
+        shapeProperties: {
+          autofit: { autofitType: "TEXT_AUTOFIT" },
+        },
+        fields: "autofit.autofitType",
       },
     });
   }
@@ -213,10 +249,6 @@ async function setupSlide(
     });
   }
 
-  if (requests.length > 0) {
-    await client.batchUpdate(presentationId, requests);
-  }
-
   // Calculate content bounds: area below title for content placement
   // Default slide: 10" x 5.625" with 0.5" side margins and 0.3" bottom margin
   const slideW = 10;
@@ -232,6 +264,54 @@ async function setupSlide(
       const titleBottom = emuToInches(bounds.y + bounds.height);
       contentY = Math.round((titleBottom + 0.1) * 100) / 100; // 0.1" gap below title
     }
+  }
+
+  // Add an opaque cover rectangle to mask layout-level decorations from PPTX templates.
+  // Layout-level shapes (inherited from the template layout) cannot be deleted via the API,
+  // so we cover them with a slide-level rectangle matching the background color.
+  // Content created by callers (bars, tables, cards) is added AFTER this, so it sits on top.
+  if (backgroundColor) {
+    const coverId = generateId("cover");
+    requests.push(
+      {
+        createShape: {
+          objectId: coverId,
+          shapeType: "RECTANGLE",
+          elementProperties: {
+            pageObjectId: actualSlideId,
+            size: {
+              width: { magnitude: inchesToEmu(slideW), unit: "EMU" },
+              height: { magnitude: inchesToEmu(slideH - contentY), unit: "EMU" },
+            },
+            transform: {
+              scaleX: 1,
+              scaleY: 1,
+              shearX: 0,
+              shearY: 0,
+              translateX: 0,
+              translateY: inchesToEmu(contentY),
+              unit: "EMU",
+            },
+          },
+        },
+      },
+      {
+        updateShapeProperties: {
+          objectId: coverId,
+          shapeProperties: {
+            shapeBackgroundFill: {
+              solidFill: { color: { rgbColor: hexToRgb(backgroundColor) } },
+            },
+            outline: { propertyState: "NOT_RENDERED" },
+          },
+          fields: "shapeBackgroundFill,outline",
+        },
+      }
+    );
+  }
+
+  if (deleteRequests.length > 0 || requests.length > 0) {
+    await client.batchUpdate(presentationId, [...deleteRequests, ...requests]);
   }
 
   const contentBounds: ContentBounds = {
@@ -362,7 +442,8 @@ export function registerCompositeTools(
           presentation_id,
           slide_id,
           title,
-          subtitle
+          subtitle,
+          style.background_color
         );
 
         // Table layout — positioned dynamically based on actual title height
@@ -626,7 +707,9 @@ export function registerCompositeTools(
           client,
           presentation_id,
           slide_id,
-          title
+          title,
+          undefined,
+          style.background_color
         );
 
         // Build bar color list
@@ -1005,7 +1088,9 @@ export function registerCompositeTools(
           client,
           presentation_id,
           slide_id,
-          title
+          title,
+          undefined,
+          style.background_color
         );
 
         // Grid layout calculation — positioned dynamically based on actual title height

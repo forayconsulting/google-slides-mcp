@@ -134,9 +134,12 @@ def register_creation_tools(mcp: "FastMCP") -> None:
         italic: bool = False,
         color: str = "#000000",
         alignment: Literal["LEFT", "CENTER", "RIGHT"] = "LEFT",
-        autofit: Literal["none", "shrink_text", "resize_shape"] = "none",
+        autofit: Literal["none", "shrink_text", "resize_shape"] = "shrink_text",
     ) -> dict:
         """Add a text box with styling to a slide.
+
+        For text that may exceed the box dimensions, set autofit to "shrink_text"
+        to prevent overflow.
 
         Args:
             presentation_id: The presentation ID

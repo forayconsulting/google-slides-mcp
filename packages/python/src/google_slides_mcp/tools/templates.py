@@ -81,6 +81,10 @@ def register_template_tools(mcp: "FastMCP") -> None:
         Placeholders can use any format ({{name}}, {name}, [[name]], etc.).
         The tool will find and replace all occurrences across all slides.
 
+        Ensure all replacement values are factually accurate. If any value requires
+        inferring information not explicitly stated in the source material, ask the
+        user to confirm first.
+
         Args:
             presentation_id: The presentation to modify
             replacements: Mapping of placeholder strings to replacement values

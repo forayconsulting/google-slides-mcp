@@ -194,6 +194,186 @@ def register_utility_tools(mcp: "FastMCP") -> None:
         return info
 
     @mcp.tool()
+    async def inspect_slide(
+        ctx: Context,
+        presentation_id: str,
+        slide_id: str,
+    ) -> dict:
+        """Inspect all elements on a slide with positions, sizes, text, and formatting.
+
+        Returns warnings for potential issues (text overflow, empty placeholders).
+
+        IMPORTANT: Use this tool before and after modifying slide content:
+        - BEFORE: Understand the slide's visual structure, element positions, and existing formatting
+        - AFTER: Verify your changes look correct and no warnings are present
+
+        If warnings indicate text overflow, consider: shorter text, smaller font, or larger shape.
+
+        Args:
+            presentation_id: The presentation ID
+            slide_id: The slide to inspect
+
+        Returns:
+            Dictionary with:
+            - slide_id: The slide's object ID
+            - element_count: Number of elements on the slide
+            - elements: List of element details (type, position, size, text, formatting)
+            - warnings: List of potential issues (overflow, empty placeholders)
+        """
+        from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
+        from google_slides_mcp.services.slides_service import SlidesService
+        from google_slides_mcp.utils.transforms import extract_element_bounds
+        from google_slides_mcp.utils.units import emu_to_inches
+
+        middleware = GoogleAuthMiddleware()
+        credentials = await middleware.extract_credentials(ctx)
+        service = SlidesService(credentials)
+
+        slide = await service.get_page(presentation_id, slide_id)
+
+        elements = []
+        warnings = []
+
+        for page_element in slide.get("pageElements", []):
+            element_id = page_element.get("objectId", "")
+            entry: dict = {"id": element_id}
+
+            # Extract position and size
+            if page_element.get("size") and page_element.get("transform"):
+                x, y, width, height = extract_element_bounds(page_element)
+                entry["position"] = {
+                    "x": round(emu_to_inches(x), 2),
+                    "y": round(emu_to_inches(y), 2),
+                }
+                entry["size"] = {
+                    "width": round(emu_to_inches(width), 2),
+                    "height": round(emu_to_inches(height), 2),
+                }
+
+            if "shape" in page_element:
+                shape = page_element["shape"]
+                entry["type"] = "SHAPE"
+                entry["shape_type"] = shape.get("shapeType", "UNKNOWN")
+
+                # Placeholder
+                placeholder = shape.get("placeholder", {})
+                if placeholder.get("type"):
+                    entry["placeholder_type"] = placeholder["type"]
+
+                # Text content and formatting
+                text_elements = shape.get("text", {}).get("textElements", [])
+                text_content = ""
+                first_run_style = None
+
+                for text_elem in text_elements:
+                    text_run = text_elem.get("textRun")
+                    if text_run:
+                        text_content += text_run.get("content", "")
+                        if first_run_style is None:
+                            first_run_style = text_run.get("style", {})
+
+                trimmed_text = text_content.strip()
+                if trimmed_text:
+                    entry["text"] = trimmed_text
+
+                # Extract formatting from first text run
+                if first_run_style:
+                    formatting: dict = {}
+                    if first_run_style.get("fontFamily"):
+                        formatting["font_family"] = first_run_style["fontFamily"]
+                    font_size = first_run_style.get("fontSize", {})
+                    if font_size.get("magnitude"):
+                        formatting["font_size_pt"] = font_size["magnitude"]
+                    if first_run_style.get("bold"):
+                        formatting["bold"] = True
+                    if first_run_style.get("italic"):
+                        formatting["italic"] = True
+
+                    fg_color = first_run_style.get("foregroundColor", {})
+                    rgb = fg_color.get("opaqueColor", {}).get("rgbColor", {})
+                    if rgb:
+                        r = round(rgb.get("red", 0) * 255)
+                        g = round(rgb.get("green", 0) * 255)
+                        b = round(rgb.get("blue", 0) * 255)
+                        formatting["color"] = f"#{r:02x}{g:02x}{b:02x}"
+
+                    if formatting:
+                        entry["formatting"] = formatting
+
+                # Overflow heuristic
+                size_obj = entry.get("size")
+                if size_obj and trimmed_text:
+                    font_size_pt = (
+                        first_run_style.get("fontSize", {}).get("magnitude", 12)
+                        if first_run_style
+                        else 12
+                    )
+                    char_width_inches = font_size_pt * 0.5 / 72
+                    chars_per_line = max(1, int(size_obj["width"] / char_width_inches))
+                    text_lines = trimmed_text.count("\n") + 1
+                    estimated_lines = max(
+                        text_lines, -(-len(trimmed_text) // chars_per_line)
+                    )
+                    text_height_inches = estimated_lines * font_size_pt * 1.3 / 72
+
+                    if text_height_inches > size_obj["height"] * 1.1:
+                        warnings.append(
+                            {
+                                "element_id": element_id,
+                                "type": "possible_overflow",
+                                "message": (
+                                    f"Text (~{len(trimmed_text)} chars) may overflow "
+                                    f"shape ({size_obj['width']}\" x {size_obj['height']}\") "
+                                    f"at {font_size_pt}pt"
+                                ),
+                            }
+                        )
+
+                # Empty placeholder warning
+                if placeholder.get("type") and not trimmed_text:
+                    warnings.append(
+                        {
+                            "element_id": element_id,
+                            "type": "empty_text",
+                            "message": (
+                                f"{placeholder['type']} placeholder has no content "
+                                "— may be a leftover placeholder"
+                            ),
+                        }
+                    )
+
+            elif "image" in page_element:
+                entry["type"] = "IMAGE"
+                entry["source_url"] = page_element["image"].get("sourceUrl", "")
+
+            elif "table" in page_element:
+                entry["type"] = "TABLE"
+                entry["rows"] = page_element["table"].get("rows", 0)
+                entry["columns"] = page_element["table"].get("columns", 0)
+
+            elif "line" in page_element:
+                entry["type"] = "LINE"
+                entry["line_type"] = page_element["line"].get("lineType", "UNKNOWN")
+
+            elif "video" in page_element:
+                entry["type"] = "VIDEO"
+
+            else:
+                entry["type"] = "UNKNOWN"
+
+            elements.append(entry)
+
+        result: dict = {
+            "slide_id": slide_id,
+            "element_count": len(elements),
+            "elements": elements,
+        }
+        if warnings:
+            result["warnings"] = warnings
+
+        return result
+
+    @mcp.tool()
     async def export_thumbnail(
         ctx: Context,
         presentation_id: str,

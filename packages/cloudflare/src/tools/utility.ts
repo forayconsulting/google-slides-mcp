@@ -262,6 +262,185 @@ export function registerUtilityTools(
   );
 
   /**
+   * inspect_slide - Comprehensive audit of all elements on a slide
+   */
+  server.tool(
+    "inspect_slide",
+    `Inspect all elements on a slide with positions, sizes, text, and formatting. Returns warnings for potential issues (text overflow, empty placeholders).
+
+IMPORTANT: Use this tool before and after modifying slide content:
+- BEFORE: Understand the slide's visual structure, element positions, and existing formatting
+- AFTER: Verify your changes look correct and no warnings are present
+
+If warnings indicate text overflow, consider: shorter text, smaller font, or larger shape.`,
+    {
+      presentation_id: z.string().describe("The presentation ID"),
+      slide_id: z.string().describe("The slide to inspect"),
+    },
+    async ({ presentation_id, slide_id }) => {
+      try {
+        const slide = await client.getPage(presentation_id, slide_id);
+
+        const elements: Record<string, unknown>[] = [];
+        const warnings: Record<string, unknown>[] = [];
+
+        for (const pageElement of slide.pageElements ?? []) {
+          const elementId = pageElement.objectId ?? "";
+          const entry: Record<string, unknown> = { id: elementId };
+
+          // Extract position and size
+          if (pageElement.size && pageElement.transform) {
+            const bounds = extractElementBounds(pageElement);
+            entry.position = {
+              x: Math.round(emuToInches(bounds.x) * 100) / 100,
+              y: Math.round(emuToInches(bounds.y) * 100) / 100,
+            };
+            entry.size = {
+              width: Math.round(emuToInches(bounds.width) * 100) / 100,
+              height: Math.round(emuToInches(bounds.height) * 100) / 100,
+            };
+          }
+
+          if (pageElement.shape) {
+            const shape = pageElement.shape as unknown as Record<string, unknown>;
+            entry.type = "SHAPE";
+            entry.shape_type = (shape.shapeType as string) ?? "UNKNOWN";
+
+            // Placeholder
+            const placeholder = shape.placeholder as Record<string, unknown> | undefined;
+            if (placeholder?.type) {
+              entry.placeholder_type = placeholder.type;
+            }
+
+            // Text content and formatting
+            const text = shape.text as Record<string, unknown> | undefined;
+            const textElements = (text?.textElements as Array<Record<string, unknown>>) ?? [];
+
+            let textContent = "";
+            let firstRunStyle: Record<string, unknown> | null = null;
+
+            for (const textElem of textElements) {
+              const textRun = textElem.textRun as Record<string, unknown> | undefined;
+              if (textRun) {
+                textContent += (textRun.content as string) ?? "";
+                if (!firstRunStyle) {
+                  firstRunStyle = (textRun.style as Record<string, unknown>) ?? null;
+                }
+              }
+            }
+
+            const trimmedText = textContent.trim();
+            if (trimmedText) {
+              entry.text = trimmedText;
+            }
+
+            // Extract formatting from first text run
+            if (firstRunStyle) {
+              const formatting: Record<string, unknown> = {};
+              if (firstRunStyle.fontFamily) formatting.font_family = firstRunStyle.fontFamily;
+
+              const fontSize = firstRunStyle.fontSize as Record<string, unknown> | undefined;
+              if (fontSize?.magnitude) formatting.font_size_pt = fontSize.magnitude;
+
+              if (firstRunStyle.bold) formatting.bold = true;
+              if (firstRunStyle.italic) formatting.italic = true;
+
+              const fgColor = firstRunStyle.foregroundColor as Record<string, unknown> | undefined;
+              const opaqueColor = fgColor?.opaqueColor as Record<string, unknown> | undefined;
+              const rgbColor = opaqueColor?.rgbColor as Record<string, unknown> | undefined;
+              if (rgbColor) {
+                const r = Math.round(((rgbColor.red as number) ?? 0) * 255);
+                const g = Math.round(((rgbColor.green as number) ?? 0) * 255);
+                const b = Math.round(((rgbColor.blue as number) ?? 0) * 255);
+                formatting.color = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+              }
+
+              if (Object.keys(formatting).length > 0) {
+                entry.formatting = formatting;
+              }
+            }
+
+            // Overflow heuristic
+            const sizeObj = entry.size as { width: number; height: number } | undefined;
+            if (sizeObj && trimmedText) {
+              const fontSizePt = (firstRunStyle?.fontSize as Record<string, unknown>)?.magnitude as number | undefined ?? 12;
+              const charWidthInches = fontSizePt * 0.5 / 72;
+              const charsPerLine = Math.max(1, Math.floor(sizeObj.width / charWidthInches));
+              const textLines = trimmedText.split("\n").length;
+              const estimatedLines = Math.max(textLines, Math.ceil(trimmedText.length / charsPerLine));
+              const textHeightInches = estimatedLines * fontSizePt * 1.3 / 72;
+
+              if (textHeightInches > sizeObj.height * 1.1) {
+                warnings.push({
+                  element_id: elementId,
+                  type: "possible_overflow",
+                  message: `Text (~${trimmedText.length} chars) may overflow shape (${sizeObj.width}" x ${sizeObj.height}") at ${fontSizePt}pt`,
+                });
+              }
+            }
+
+            // Empty placeholder warning
+            if (placeholder?.type && !trimmedText) {
+              warnings.push({
+                element_id: elementId,
+                type: "empty_text",
+                message: `${placeholder.type as string} placeholder has no content — may be a leftover placeholder`,
+              });
+            }
+          } else if (pageElement.image) {
+            entry.type = "IMAGE";
+            const image = pageElement.image as unknown as Record<string, unknown>;
+            entry.source_url = image.sourceUrl ?? "";
+          } else if (pageElement.table) {
+            entry.type = "TABLE";
+            const table = pageElement.table as unknown as Record<string, unknown>;
+            entry.rows = table.rows ?? 0;
+            entry.columns = table.columns ?? 0;
+          } else if (pageElement.line) {
+            entry.type = "LINE";
+            const line = pageElement.line as unknown as Record<string, unknown>;
+            entry.line_type = line.lineType ?? "UNKNOWN";
+          } else if ((pageElement as unknown as Record<string, unknown>).video) {
+            entry.type = "VIDEO";
+          } else {
+            entry.type = "UNKNOWN";
+          }
+
+          elements.push(entry);
+        }
+
+        const result: Record<string, unknown> = {
+          slide_id,
+          element_count: elements.length,
+          elements,
+        };
+        if (warnings.length > 0) {
+          result.warnings = warnings;
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  /**
    * export_thumbnail - Generate a thumbnail image of a slide
    */
   server.tool(

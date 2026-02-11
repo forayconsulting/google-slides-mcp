@@ -171,6 +171,21 @@ Create your working copy:
 - For Google Slides: \`copy_template(template_id="${hasTemplate ? templateId : "<template_id>"}", new_name="${presentationName}")\`
 - For PowerPoint (.pptx): Add \`convert_to_slides=true\` to convert to native Google Slides
 
+## Step 3.5: Pre-Population Audit (Critical)
+Before populating any content:
+
+1. **Inspect every slide** you plan to modify with \`inspect_slide\`
+2. **Map content to slides**: Create a mapping of which content goes where.
+   Note which slides need:
+   - Simple text replacement (just swap placeholder text)
+   - Structural changes (different number of items, columns, etc.)
+   - Complete rebuilds (template structure doesn't match your content)
+3. **Identify gaps**: For any content not explicitly provided in your source
+   material (names, roles, dates, metrics), **ask the user** before proceeding.
+   Never guess or fabricate.
+4. **Check formatting**: Note existing bullet styles, font sizes, and colors.
+   Preserve them during text replacement.
+
 ## Step 4: Populate Content
 Choose the right tool based on your content type:
 
@@ -185,6 +200,11 @@ Choose the right tool based on your content type:
 | Image placeholders | \`replace_placeholder_with_image\` | Swap shapes for images |
 
 **Recommendation**: Use **composite slide tools** (\`create_table_slide\`, \`create_chart_slide\`, \`create_dashboard_slide\`) whenever possible — they auto-apply theme colors and create the entire slide in one call. For text-only slides, use \`update_presentation_content\` for efficiency.
+
+**After populating each slide**, use \`inspect_slide\` to verify:
+- No text overflow warnings
+- No empty leftover placeholders
+- Formatting is consistent within each slide
 
 ## Step 5: Apply Styling (Optional)
 If the template styling needs adjustment:

@@ -40,6 +40,11 @@ def register_low_level_tools(mcp: "FastMCP") -> None:
 
         See: https://developers.google.com/slides/api/reference/rest/v1/presentations/batchUpdate
 
+        When modifying positioned elements (Gantt bars, timeline phases, infographic
+        connectors), first use inspect_slide or get_page to understand spatial
+        relationships. If you change text labels that correspond to positions (e.g.,
+        date headers), you must also update the transforms of related visual elements.
+
         Args:
             presentation_id: The ID of the presentation to modify
             requests: Array of request objects (createSlide, insertText,

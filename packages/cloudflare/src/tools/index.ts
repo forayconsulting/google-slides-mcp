@@ -45,8 +45,8 @@ export function registerAllTools(
   // - batch_update, get_presentation, get_page
   registerLowLevelTools(server, tokenManager);
 
-  // Priority 2: Utility tools (4 tools)
-  // - list_slides, list_layouts, get_element_info, export_thumbnail
+  // Priority 2: Utility tools (5 tools)
+  // - list_slides, list_layouts, get_element_info, inspect_slide, export_thumbnail
   registerUtilityTools(server, tokenManager);
 
   // Priority 3: Template tools (4 tools)
@@ -85,5 +85,5 @@ export function registerAllTools(
   // - get_presentation_style, create_table_slide, create_chart_slide, create_dashboard_slide
   registerCompositeTools(server, tokenManager);
 
-  // Total: 32 tools
+  // Total: 33 tools
 }

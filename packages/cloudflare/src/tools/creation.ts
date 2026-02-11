@@ -54,7 +54,7 @@ export function registerCreationTools(
 
   server.tool(
     "create_slide",
-    `Create a new slide with the specified layout. Returns placeholder positions and sizes in inches for spatial awareness when placing additional elements. Accepts either a predefined layout name (BLANK, TITLE, TITLE_AND_BODY, TITLE_AND_TWO_COLUMNS, TITLE_ONLY, SECTION_HEADER, ONE_COLUMN_TEXT, MAIN_POINT, BIG_NUMBER, CAPTION_ONLY) or a custom layout object ID from the presentation (use list_layouts to discover available layouts).`,
+    `Create a new slide with the specified layout. Returns placeholder positions and sizes in inches for spatial awareness when placing additional elements. Accepts either a predefined layout name (BLANK, TITLE, TITLE_AND_BODY, TITLE_AND_TWO_COLUMNS, TITLE_ONLY, SECTION_HEADER, ONE_COLUMN_TEXT, MAIN_POINT, BIG_NUMBER, CAPTION_ONLY) or a custom layout object ID from the presentation (use list_layouts to discover available layouts). Note: PPTX templates may include IMAGE/PICTURE placeholders — use replace_placeholder_with_image to fill them, or batch_update with deleteObject to remove unwanted ones.`,
     {
       presentation_id: z.string().describe("The presentation to add the slide to"),
       layout: z.string().default("BLANK").describe("Predefined layout name or custom layout object ID"),
@@ -153,7 +153,7 @@ export function registerCreationTools(
    */
   server.tool(
     "add_text_box",
-    "Add a text box with styling to a slide.",
+    `Add a text box with styling to a slide. For text that may exceed the box dimensions, set autofit to "shrink_text" to prevent overflow.`,
     {
       presentation_id: z.string().describe("The presentation ID"),
       slide_id: z.string().describe("The slide to add the text box to"),
@@ -168,7 +168,7 @@ export function registerCreationTools(
       italic: z.boolean().default(false).describe("Whether text is italic"),
       color: z.string().default("#000000").describe("Text color as hex"),
       alignment: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT").describe("Text alignment"),
-      autofit: z.enum(["none", "shrink_text", "resize_shape"]).default("none").describe("Autofit behavior: none, shrink_text (shrink text to fit), or resize_shape (grow shape to fit text)"),
+      autofit: z.enum(["none", "shrink_text", "resize_shape"]).default("shrink_text").describe("Autofit behavior: none, shrink_text (shrink text to fit), or resize_shape (grow shape to fit text)"),
     },
     async ({ presentation_id, slide_id, text, x, y, width, height, font_size, font_family, bold, italic, color, alignment, autofit }) => {
       try {

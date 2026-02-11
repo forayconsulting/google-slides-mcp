@@ -227,6 +227,10 @@ def register_content_tools(mcp: "FastMCP") -> None:
         NOTE: For multiple slides, PREFER update_presentation_content
         (single API call, more efficient).
 
+        IMPORTANT: Before using this tool, use inspect_slide to understand the slide's
+        visual structure and existing formatting. If the source material does not
+        explicitly specify content for a placeholder, ask the user rather than guessing.
+
         Args:
             presentation_id: The presentation ID
             slide_id: The slide to update
@@ -294,6 +298,11 @@ def register_content_tools(mcp: "FastMCP") -> None:
 
         Each item maps slide_id to placeholder content. More efficient than
         calling update_slide_content multiple times.
+
+        IMPORTANT: Before bulk-updating slides, use inspect_slide on at least one
+        representative slide to understand the template's visual structure. Do not
+        fabricate names, roles, dates, or data — ask the user for any information
+        not explicitly provided in the source material.
 
         Args:
             presentation_id: The presentation ID

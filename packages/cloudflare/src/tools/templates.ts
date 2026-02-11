@@ -76,7 +76,9 @@ export function registerTemplateTools(
    */
   server.tool(
     "replace_placeholders",
-    "Replace placeholder text throughout a presentation. Placeholders can use any format ({{name}}, {name}, [[name]], etc.). The tool will find and replace all occurrences across all slides.",
+    `Replace placeholder text throughout a presentation. Placeholders can use any format ({{name}}, {name}, [[name]], etc.). The tool will find and replace all occurrences across all slides.
+
+Ensure all replacement values are factually accurate. If any value requires inferring information not explicitly stated in the source material, ask the user to confirm first.`,
     {
       presentation_id: z.string().describe("The presentation to modify"),
       replacements: z.record(z.string()).describe("Mapping of placeholder strings to replacement values"),

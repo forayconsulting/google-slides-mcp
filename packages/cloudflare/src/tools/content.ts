@@ -206,7 +206,9 @@ For multi-column layouts with multiple BODY placeholders:
 - BODY_0, BODY_1, BODY_2 → writes to specific BODY placeholder by index
 - BODY (array, multiple BODY placeholders) → distributes one item per BODY placeholder
 
-NOTE: For multiple slides, PREFER update_presentation_content (single API call, more efficient).`,
+NOTE: For multiple slides, PREFER update_presentation_content (single API call, more efficient).
+
+IMPORTANT: Before using this tool, use inspect_slide to understand the slide's visual structure and existing formatting. If the source material does not explicitly specify content for a placeholder, ask the user rather than guessing.`,
     {
       presentation_id: z.string().describe("The presentation ID"),
       slide_id: z.string().describe("The slide to update"),
@@ -300,7 +302,9 @@ NOTE: For multiple slides, PREFER update_presentation_content (single API call, 
 Each item in the slides array should have a slide_id plus placeholder type keys:
   [{"slide_id": "p3", "TITLE": "Slide 1", "BODY": "Content"}, {"slide_id": "p4", "TITLE": "Slide 2"}]
 
-For multi-column layouts: use BODY_0, BODY_1 for indexed access, or pass an array to distribute across BODY placeholders.`,
+For multi-column layouts: use BODY_0, BODY_1 for indexed access, or pass an array to distribute across BODY placeholders.
+
+IMPORTANT: Before bulk-updating slides, use inspect_slide on at least one representative slide to understand the template's visual structure. Do not fabricate names, roles, dates, or data — ask the user for any information not explicitly provided in the source material.`,
     {
       presentation_id: z.string().describe("The presentation ID"),
       slides: z.array(z.record(z.unknown())).describe("List of dicts with slide_id and placeholder content"),
