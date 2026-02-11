@@ -211,16 +211,6 @@ async function setupSlide(
         insertionIndex: 0,
       },
     });
-    // Auto-shrink long titles so they don't truncate
-    requests.push({
-      updateShapeProperties: {
-        objectId: titlePlaceholderId,
-        shapeProperties: {
-          autofit: { autofitType: "TEXT_AUTOFIT" },
-        },
-        fields: "autofit.autofitType",
-      },
-    });
   }
 
   if (subtitlePlaceholderId && subtitle) {
@@ -314,6 +304,25 @@ async function setupSlide(
     await client.batchUpdate(presentationId, [...deleteRequests, ...requests]);
   }
 
+  // Auto-shrink long titles — separate call because some PPTX templates
+  // have placeholder types that don't support autofit, and we don't want
+  // a failure here to prevent the title text from being set.
+  if (titlePlaceholderId) {
+    try {
+      await client.batchUpdate(presentationId, [{
+        updateShapeProperties: {
+          objectId: titlePlaceholderId,
+          shapeProperties: {
+            autofit: { autofitType: "TEXT_AUTOFIT" },
+          },
+          fields: "autofit.autofitType",
+        },
+      }]);
+    } catch {
+      // Silently skip — title will render with default sizing
+    }
+  }
+
   const contentBounds: ContentBounds = {
     x: marginX,
     y: contentY,
@@ -375,7 +384,7 @@ export function registerCompositeTools(
 
   server.tool(
     "create_table_slide",
-    "Create a complete table slide in one call. Automatically applies the presentation's theme colors to headers, zebra stripes, and text. Creates a TITLE_ONLY slide (or uses existing slide_id), sets the title via template placeholder, and builds a styled data table.",
+    "Create a complete themed table slide in one call. Automatically extracts and applies the presentation's theme colors to headers and zebra stripes. Best for: team rosters, deliverable lists, timeline/milestone tables, agenda breakdowns. Provide data as a 2D array where the first row is the header. Creates a TITLE_ONLY slide (or uses existing slide_id) and sets the title via template placeholder.",
     {
       presentation_id: z.string().describe("The presentation ID"),
       title: z.string().describe("Slide title"),
@@ -1041,7 +1050,7 @@ export function registerCompositeTools(
 
   server.tool(
     "create_dashboard_slide",
-    "Create a complete KPI dashboard slide in one call. Automatically applies the presentation's theme colors. Creates a TITLE_ONLY slide (or uses existing slide_id), sets the title via template placeholder, and arranges 1-8 metric cards in an auto-calculated grid.",
+    "Create a KPI dashboard with 1-8 auto-arranged metric cards. Best for: current state snapshots, key metrics overviews, executive summaries. Each metric needs 'value' (the big number) and 'label' (what it measures), with optional 'description' (context like 'Up 25% YoY'). Automatically applies the presentation's theme colors. Creates a TITLE_ONLY slide (or uses existing slide_id) and sets the title via template placeholder.",
     {
       presentation_id: z.string().describe("The presentation ID"),
       title: z.string().describe("Slide title"),

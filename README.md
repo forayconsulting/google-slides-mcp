@@ -60,7 +60,7 @@ google-slides-mcp/
 │       │   ├── mcp-agent.ts    # McpAgent Durable Object
 │       │   ├── api/            # Google API REST clients + TokenManager
 │       │   ├── auth/           # Google OAuth handler
-│       │   ├── tools/          # All 32 MCP tools
+│       │   ├── tools/          # All 33 MCP tools
 │       │   ├── prompts/        # Workflow and discovery prompts
 │       │   └── utils/          # EMU, color, transform utilities
 │       ├── wrangler.toml
@@ -72,7 +72,7 @@ google-slides-mcp/
 └── README.md
 ```
 
-## Available Tools (32 total)
+## Available Tools (33 total)
 
 ### Low-Level Tools
 - `batch_update` - Execute raw batchUpdate requests against Google Slides API
@@ -105,6 +105,7 @@ google-slides-mcp/
 - `list_slides` - List all slides with IDs and titles
 - `list_layouts` - List available slide layouts with placeholder types
 - `get_element_info` - Get element details in human-readable format
+- `inspect_slide` - Comprehensive slide audit with overflow/empty warnings
 - `export_thumbnail` - Generate slide thumbnails
 
 ### Cleanup Tools

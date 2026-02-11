@@ -163,7 +163,7 @@ export function registerCreationTools(
       width: z.number().default(4).describe("Width in inches"),
       height: z.number().default(1).describe("Height in inches"),
       font_size: z.number().default(18).describe("Font size in points"),
-      font_family: z.string().default("Arial").describe("Font family name"),
+      font_family: z.string().default("Nunito Sans").describe("Font family name"),
       bold: z.boolean().default(false).describe("Whether text is bold"),
       italic: z.boolean().default(false).describe("Whether text is italic"),
       color: z.string().default("#000000").describe("Text color as hex"),

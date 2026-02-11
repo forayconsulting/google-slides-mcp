@@ -28,6 +28,10 @@ export class GoogleSlidesMCP extends McpAgent<Env, Record<string, never>, Props>
     {
       instructions: `Google Slides MCP Server provides tools for creating and manipulating Google Slides presentations. Use the semantic tools (position_element, add_text_box, etc.) for common operations, or use batch_update for full API access.
 
+## Brand Defaults
+
+This server is configured for Praecipio Consulting presentations. Default colors (Teal #054950, Orange #C84F09, Burgundy #6A1933, Navy #2B3F60, Mint #92E5B7, Lavender #B699E1) and font (Nunito Sans) are automatically applied. When building from a blank presentation, simply use defaults — they will be Praecipio-branded. Presentations with existing themes will use their own colors via theme extraction.
+
 ## Critical Behavioral Guidelines
 
 1. NEVER FABRICATE CONTENT. If the source material (transcript, brief, etc.) does not explicitly state a person's role, a specific date, a metric, or any factual claim, ASK THE USER to confirm before inserting it. Guessing names, titles, roles, or data erodes trust in the output.
@@ -42,6 +46,59 @@ export class GoogleSlidesMCP extends McpAgent<Env, Record<string, never>, Props>
    - When using batch_update to insert text, also set updateTextStyle to maintain consistent formatting.
 
 5. UNDERSTAND SPATIAL RELATIONSHIPS. Elements like Gantt bars, timeline phases, and infographic connectors are positioned by absolute transforms. If you change column headers or date ranges, you MUST also reposition the visual elements to match.
+
+## Recommended Workflow for Building Decks
+
+When asked to create a presentation from source materials (transcripts, SOWs, briefs):
+
+1. PLAN FIRST. Before touching the API, draft a slide-by-slide outline:
+   - Slide number, title, content type (bullets, table, KPI dashboard, etc.)
+   - Which tool to use for each slide
+   - Present the plan to the user for approval before building
+
+2. CREATE A BLANK PRESENTATION or COPY A TEMPLATE.
+   - For blank: use create_slide for each slide
+   - For template: use search_presentations → copy_template
+
+3. BUILD SLIDE BY SLIDE. For each slide:
+   a. Create the slide (create_slide or composite tool)
+   b. Populate content
+   c. Run inspect_slide to verify — fix any warnings before continuing
+
+4. PREFER COMPOSITE TOOLS when they fit:
+   - create_table_slide for any tabular data (team rosters, deliverables, timelines, agendas)
+   - create_dashboard_slide for KPI/metric displays
+   - create_chart_slide for bar charts
+   These automatically apply theme colors and create professional layouts.
+
+5. USE ATOMIC TOOLS for custom layouts:
+   - add_text_box for free-form text blocks
+   - add_shape + add_text_box for callout boxes
+   - add_line for dividers
+
+## Common Pitfalls
+
+- Tables cannot be repositioned after creation. If a table needs to be at a specific position, set x/y/width/height in the create call correctly the first time.
+- create_slide insertion_index is 0-based. Use list_slides to check current count before inserting.
+- For PPTX templates, predefined layout names (TITLE_ONLY, BLANK) may not work. Use list_layouts to discover available layout IDs.
+- Do NOT attempt to position_element on tables — it will fail silently. Delete and recreate instead.
+- When building multi-slide decks, build all slides sequentially. Do not skip inspect_slide verification.
+
+## Suggested Slide Structures
+
+For client kickoff/workshop decks, a proven structure is:
+1. Title slide (engagement name, client, date)
+2. Agenda/overview
+3. Strategic context ("Why now?")
+4. Current state metrics (use create_dashboard_slide)
+5. Engagement team (use create_table_slide)
+6. Approach overview
+7-8. Day-by-day agenda (use create_table_slide)
+9. Deliverables (use create_table_slide)
+10. Timeline & milestones
+11. Next steps
+
+This is a suggestion — always adapt to the source material provided.
 
 Authentication is required. Ensure you have valid Google OAuth credentials configured.`,
     }

@@ -30,14 +30,14 @@ export interface PresentationStyle {
  * Default style used when theme extraction fails.
  */
 export const DEFAULT_STYLE: PresentationStyle = {
-  primary_color: "#1a73e8",
-  accent_colors: ["#ea4335", "#fbbc04", "#34a853", "#4285f4", "#ff6d01"],
-  heading_font: "Arial",
-  body_font: "Arial",
-  heading_text_color: "#202124",
-  body_text_color: "#5f6368",
+  primary_color: "#054950",
+  accent_colors: ["#C84F09", "#6A1933", "#2B3F60", "#92E5B7", "#B699E1"],
+  heading_font: "Nunito Sans",
+  body_font: "Nunito Sans",
+  heading_text_color: "#054950",
+  body_text_color: "#3C4043",
   background_color: "#FFFFFF",
-  alt_background_color: "#F8F9FA",
+  alt_background_color: "#F0FAFA",
   source: "defaults",
 };
 

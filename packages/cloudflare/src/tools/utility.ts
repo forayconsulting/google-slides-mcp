@@ -268,7 +268,7 @@ export function registerUtilityTools(
     "inspect_slide",
     `Inspect all elements on a slide with positions, sizes, text, and formatting. Returns warnings for potential issues (text overflow, empty placeholders).
 
-IMPORTANT: Use this tool before and after modifying slide content:
+IMPORTANT: ALWAYS run this after creating or modifying a slide. Do not skip this step.
 - BEFORE: Understand the slide's visual structure, element positions, and existing formatting
 - AFTER: Verify your changes look correct and no warnings are present
 
@@ -396,6 +396,25 @@ If warnings indicate text overflow, consider: shorter text, smaller font, or lar
             const table = pageElement.table as unknown as Record<string, unknown>;
             entry.rows = table.rows ?? 0;
             entry.columns = table.columns ?? 0;
+
+            // Calculate actual table width from column widths (more accurate than element size)
+            const tableColumns = table.tableColumns as Array<Record<string, unknown>> | undefined;
+            if (tableColumns) {
+              let totalWidth = 0;
+              for (const col of tableColumns) {
+                const colWidth = col.columnWidth as Record<string, unknown> | undefined;
+                if (colWidth?.magnitude) {
+                  totalWidth += colWidth.magnitude as number;
+                }
+              }
+              if (totalWidth > 0) {
+                const currentSize = entry.size as Record<string, unknown> | undefined;
+                entry.size = {
+                  width: Math.round(emuToInches(totalWidth) * 100) / 100,
+                  height: currentSize?.height ?? null,
+                };
+              }
+            }
           } else if (pageElement.line) {
             entry.type = "LINE";
             const line = pageElement.line as unknown as Record<string, unknown>;
