@@ -78,7 +78,11 @@ export function registerTemplateTools(
     "replace_placeholders",
     `Replace placeholder text throughout a presentation. Placeholders can use any format ({{name}}, {name}, [[name]], etc.). The tool will find and replace all occurrences across all slides.
 
-Ensure all replacement values are factually accurate. If any value requires inferring information not explicitly stated in the source material, ask the user to confirm first.`,
+WARNING: This is PRESENTATION-WIDE — it replaces every match on every slide. Only use for uniquely-bracketed tokens like {{CLIENT_NAME}}. For slide-scoped replacement, use replace_text_on_slide instead.
+
+Ensure all replacement values are factually accurate. If any value requires inferring information not explicitly stated in the source material, ask the user to confirm first.
+
+Returns a modified_slides list of all slide IDs so you know which slides to verify with inspect_slide or inspect_slides.`,
     {
       presentation_id: z.string().describe("The presentation to modify"),
       replacements: z.record(z.string()).describe("Mapping of placeholder strings to replacement values"),
@@ -105,6 +109,13 @@ Ensure all replacement values are factually accurate. If any value requires infe
           counts[placeholder] = (replaceAllText?.occurrencesChanged as number) ?? 0;
         }
 
+        // Fetch slide IDs so the agent knows which slides to verify
+        const presentation = await slidesClient.getPresentation(
+          presentation_id,
+          "slides.objectId"
+        );
+        const modifiedSlides = (presentation.slides ?? []).map((s) => s.objectId);
+
         return {
           content: [
             {
@@ -112,6 +123,7 @@ Ensure all replacement values are factually accurate. If any value requires infe
               text: JSON.stringify({
                 replacements: counts,
                 total: Object.values(counts).reduce((a, b) => a + b, 0),
+                modified_slides: modifiedSlides,
               }, null, 2),
             },
           ],
@@ -187,7 +199,7 @@ Ensure all replacement values are factually accurate. If any value requires infe
    */
   server.tool(
     "search_presentations",
-    "Search for presentations in Google Drive. TYPICAL WORKFLOW: search_presentations -> copy_template -> analyze_presentation -> replace_placeholders. Use to discover templates or find existing presentations by name.",
+    "Search for presentations in Google Drive. TYPICAL WORKFLOW: search_presentations -> copy_template -> analyze_presentation -> replace_placeholders. Use to discover templates or find existing presentations by name. Google Drive uses substring matching on file names. Use the shortest distinctive keyword (e.g., 'kickoff' not 'Engagement Kick Off Template'). Search is case-insensitive. Returns Google Slides and PowerPoint files.",
     {
       query: z.string().optional().describe("Search term to match against file names"),
       folder_id: z.string().optional().describe("Limit search to a specific folder ID"),

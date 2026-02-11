@@ -45,8 +45,8 @@ export function registerAllTools(
   // - batch_update, get_presentation, get_page
   registerLowLevelTools(server, tokenManager);
 
-  // Priority 2: Utility tools (5 tools)
-  // - list_slides, list_layouts, get_element_info, inspect_slide, export_thumbnail
+  // Priority 2: Utility tools (6 tools)
+  // - list_slides, list_layouts, get_element_info, inspect_slide, inspect_slides, export_thumbnail
   registerUtilityTools(server, tokenManager);
 
   // Priority 3: Template tools (4 tools)
@@ -57,8 +57,8 @@ export function registerAllTools(
   // - create_slide, add_text_box, add_image, add_shape
   registerCreationTools(server, tokenManager);
 
-  // Priority 6: Content tools (3 tools)
-  // - update_slide_content, update_presentation_content, apply_text_style
+  // Priority 6: Content tools (5 tools)
+  // - update_slide_content, update_presentation_content, apply_text_style, update_table_content, replace_text_on_slide
   registerContentTools(server, tokenManager);
 
   // Priority 7: Positioning tools (3 tools)
@@ -85,5 +85,5 @@ export function registerAllTools(
   // - get_presentation_style, create_table_slide, create_chart_slide, create_dashboard_slide
   registerCompositeTools(server, tokenManager);
 
-  // Total: 33 tools
+  // Total: 36 tools
 }

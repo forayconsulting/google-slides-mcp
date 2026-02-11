@@ -13,6 +13,9 @@ import type { Page } from "../api/types.js";
 import { hexToRgb } from "../utils/colors.js";
 import { extractElementBounds } from "../utils/transforms.js";
 import { emuToInches } from "../utils/units.js";
+import {
+  extractPresentationStyle,
+} from "../utils/style.js";
 
 /**
  * Unescape literal \n and \t sequences that LLMs sometimes double-escape
@@ -515,6 +518,291 @@ IMPORTANT: Before bulk-updating slides, use inspect_slide on at least one repres
               text: JSON.stringify({
                 elements_styled: elementsStyled,
                 slides_affected: slidesAffected,
+              }, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  /**
+   * update_table_content - Replace all cell text in a table
+   */
+  server.tool(
+    "update_table_content",
+    `Update table cell text in bulk. Provide a 2D data array (row-major) to replace cell contents. Optionally styles the header row with bold text and the presentation's primary theme color.
+
+Use inspect_slide with include_table_data=true to read existing table content before updating.`,
+    {
+      presentation_id: z.string().describe("The presentation ID"),
+      slide_id: z.string().describe("The slide containing the table"),
+      table_id: z.string().describe("Element ID of the table to update"),
+      data: z.array(z.array(z.string())).describe("2D array of cell text (row-major). Must match table dimensions."),
+      style_header: z.boolean().default(true).describe("Bold + themed color for first row"),
+      font_size: z.number().default(9).describe("Font size in points for body cells"),
+      font_family: z.string().default("Nunito Sans").describe("Font family for all cells"),
+    },
+    async ({ presentation_id, slide_id, table_id, data, style_header, font_size, font_family }) => {
+      try {
+        // Fetch slide to read current table cell text
+        const slide = await client.getPage(presentation_id, slide_id);
+        const tableElement = slide.pageElements?.find((el) => el.objectId === table_id);
+        if (!tableElement?.table) {
+          throw new Error(`Element ${table_id} is not a table or was not found on slide ${slide_id}`);
+        }
+
+        const table = tableElement.table;
+        const rowCount = table.rows;
+        const colCount = table.columns;
+
+        if (data.length !== rowCount) {
+          throw new Error(`Data has ${data.length} rows but table has ${rowCount} rows`);
+        }
+        for (let r = 0; r < data.length; r++) {
+          if (data[r].length !== colCount) {
+            throw new Error(`Data row ${r} has ${data[r].length} columns but table has ${colCount} columns`);
+          }
+        }
+
+        // Read current cell text to conditionally skip deleteText for empty cells
+        const currentCellText: string[][] = [];
+        for (const row of table.tableRows ?? []) {
+          const rowTexts: string[] = [];
+          for (const cell of row.tableCells ?? []) {
+            const textElements = cell.text?.textElements ?? [];
+            let cellContent = "";
+            for (const te of textElements) {
+              cellContent += te.textRun?.content ?? "";
+            }
+            rowTexts.push(cellContent.trim());
+          }
+          currentCellText.push(rowTexts);
+        }
+
+        const requests: Record<string, unknown>[] = [];
+
+        // Extract theme style for header coloring
+        let headerColor: string | undefined;
+        if (style_header) {
+          try {
+            const pres = await client.getPresentation(
+              presentation_id,
+              "masters,slides.pageElements.shape.shapeProperties,slides.pageElements.shape.text.textElements.textRun.style"
+            );
+            const style = extractPresentationStyle(pres);
+            headerColor = style.primary_color;
+          } catch {
+            headerColor = "#054950"; // Fallback to brand default
+          }
+        }
+
+        for (let row = 0; row < rowCount; row++) {
+          for (let col = 0; col < colCount; col++) {
+            const currentText = currentCellText[row]?.[col] ?? "";
+            const newText = unescapeText(data[row][col]);
+
+            // Only delete if cell has existing content
+            if (currentText.length > 0) {
+              requests.push({
+                deleteText: {
+                  objectId: table_id,
+                  cellLocation: { rowIndex: row, columnIndex: col },
+                  textRange: { type: "ALL" },
+                },
+              });
+            }
+
+            if (newText) {
+              requests.push({
+                insertText: {
+                  objectId: table_id,
+                  cellLocation: { rowIndex: row, columnIndex: col },
+                  text: newText,
+                  insertionIndex: 0,
+                },
+              });
+            }
+
+            // Style cells
+            const isHeader = style_header && row === 0;
+            const textStyle: Record<string, unknown> = {
+              fontFamily: font_family,
+              fontSize: { magnitude: isHeader ? font_size + 1 : font_size, unit: "PT" },
+              bold: isHeader,
+            };
+            const fields = ["fontFamily", "fontSize", "bold"];
+
+            if (isHeader && headerColor) {
+              textStyle.foregroundColor = {
+                opaqueColor: { rgbColor: hexToRgb("#FFFFFF") },
+              };
+              fields.push("foregroundColor");
+            }
+
+            requests.push({
+              updateTextStyle: {
+                objectId: table_id,
+                cellLocation: { rowIndex: row, columnIndex: col },
+                style: textStyle,
+                fields: fields.join(","),
+                textRange: { type: "ALL" },
+              },
+            });
+
+            // Header background
+            if (isHeader && headerColor) {
+              requests.push({
+                updateTableCellProperties: {
+                  objectId: table_id,
+                  tableRange: {
+                    location: { rowIndex: row, columnIndex: col },
+                    rowSpan: 1,
+                    columnSpan: 1,
+                  },
+                  tableCellProperties: {
+                    tableCellBackgroundFill: {
+                      solidFill: {
+                        color: { rgbColor: hexToRgb(headerColor) },
+                      },
+                    },
+                  },
+                  fields: "tableCellBackgroundFill",
+                },
+              });
+            }
+          }
+        }
+
+        if (requests.length > 0) {
+          await client.batchUpdate(presentation_id, requests);
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                table_id,
+                rows_updated: rowCount,
+                columns_updated: colCount,
+              }, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  /**
+   * replace_text_on_slide - Slide-scoped find-and-replace
+   */
+  server.tool(
+    "replace_text_on_slide",
+    `Find and replace text within a single slide. Unlike replace_placeholders (which is presentation-wide), this targets only one slide. Useful for slide-specific edits like updating a name, date, or label without affecting other slides.
+
+For each text element on the slide, all occurrences of each search string are replaced. Example: replacing "Q1" with "Q2" in a shape containing "Q1 Results" produces "Q2 Results".`,
+    {
+      presentation_id: z.string().describe("The presentation ID"),
+      slide_id: z.string().describe("The slide to search"),
+      replacements: z.record(z.string()).describe("Mapping of old text → new text"),
+    },
+    async ({ presentation_id, slide_id, replacements }) => {
+      try {
+        const slide = await client.getPage(presentation_id, slide_id);
+        const requests: Record<string, unknown>[] = [];
+        const replacementCounts: Record<string, number> = {};
+        const elementsModified: string[] = [];
+
+        // Initialize counts
+        for (const key of Object.keys(replacements)) {
+          replacementCounts[key] = 0;
+        }
+
+        for (const element of slide.pageElements ?? []) {
+          const elementId = element.objectId ?? "";
+
+          // Extract full text from shape
+          let fullText = "";
+          if (element.shape?.text?.textElements) {
+            for (const te of element.shape.text.textElements) {
+              fullText += te.textRun?.content ?? "";
+            }
+          }
+
+          if (!fullText) continue;
+
+          // Apply all replacements to the full text
+          let modifiedText = fullText;
+          let elementWasModified = false;
+
+          for (const [search, replace] of Object.entries(replacements)) {
+            if (modifiedText.includes(search)) {
+              // Count occurrences before replacing
+              let count = 0;
+              let idx = modifiedText.indexOf(search);
+              while (idx !== -1) {
+                count++;
+                idx = modifiedText.indexOf(search, idx + search.length);
+              }
+              replacementCounts[search] += count;
+              modifiedText = modifiedText.split(search).join(replace);
+              elementWasModified = true;
+            }
+          }
+
+          if (elementWasModified) {
+            // Only delete if there was content
+            if (fullText.length > 0) {
+              requests.push({
+                deleteText: {
+                  objectId: elementId,
+                  textRange: { type: "ALL" },
+                },
+              });
+            }
+            requests.push({
+              insertText: {
+                objectId: elementId,
+                text: modifiedText,
+                insertionIndex: 0,
+              },
+            });
+            elementsModified.push(elementId);
+          }
+        }
+
+        if (requests.length > 0) {
+          await client.batchUpdate(presentation_id, requests);
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                replacements_made: replacementCounts,
+                elements_modified: elementsModified,
               }, null, 2),
             },
           ],

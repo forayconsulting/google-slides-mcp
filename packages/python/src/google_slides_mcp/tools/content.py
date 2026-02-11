@@ -483,3 +483,312 @@ def register_content_tools(mcp: "FastMCP") -> None:
             "elements_styled": elements_styled,
             "slides_affected": slides_affected,
         }
+
+    @mcp.tool()
+    async def update_table_content(
+        ctx: Context,
+        presentation_id: str,
+        slide_id: str,
+        table_id: str,
+        data: list[list[str]],
+        style_header: bool = True,
+        font_size: int = 9,
+        font_family: str = "Nunito Sans",
+    ) -> dict:
+        """Update table cell text in bulk. Provide a 2D data array
+        (row-major) to replace cell contents. Optionally styles the
+        header row with bold text and the presentation's primary
+        theme color.
+
+        Use inspect_slide with include_table_data=true to read
+        existing table content before updating.
+
+        Args:
+            presentation_id: The presentation ID
+            slide_id: The slide containing the table
+            table_id: Element ID of the table to update
+            data: 2D array of cell text (row-major). Must match
+                table dimensions.
+            style_header: Bold + themed color for first row
+            font_size: Font size in points for body cells
+            font_family: Font family for all cells
+
+        Returns:
+            Dictionary with table_id, rows_updated, columns_updated
+        """
+        from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
+        from google_slides_mcp.services.slides_service import SlidesService
+        from google_slides_mcp.utils.colors import hex_to_rgb
+
+        middleware = GoogleAuthMiddleware()
+        credentials = await middleware.extract_credentials(ctx)
+        service = SlidesService(credentials)
+
+        # Fetch slide to read current table cell text
+        slide = await service.get_page(presentation_id, slide_id)
+
+        table_element = None
+        for el in slide.get("pageElements", []):
+            if el.get("objectId") == table_id:
+                table_element = el
+                break
+
+        if not table_element or "table" not in table_element:
+            raise ValueError(
+                f"Element {table_id} is not a table or was not "
+                f"found on slide {slide_id}"
+            )
+
+        table = table_element["table"]
+        row_count = table.get("rows", 0)
+        col_count = table.get("columns", 0)
+
+        if len(data) != row_count:
+            raise ValueError(
+                f"Data has {len(data)} rows but table has "
+                f"{row_count} rows"
+            )
+        for r, row_data in enumerate(data):
+            if len(row_data) != col_count:
+                raise ValueError(
+                    f"Data row {r} has {len(row_data)} columns "
+                    f"but table has {col_count} columns"
+                )
+
+        # Read current cell text to conditionally skip deleteText
+        current_cell_text: list[list[str]] = []
+        for row in table.get("tableRows", []):
+            row_texts: list[str] = []
+            for cell in row.get("tableCells", []):
+                text_elements = cell.get("text", {}).get(
+                    "textElements", []
+                )
+                cell_content = "".join(
+                    te.get("textRun", {}).get("content", "")
+                    for te in text_elements
+                )
+                row_texts.append(cell_content.strip())
+            current_cell_text.append(row_texts)
+
+        requests: list[dict] = []
+
+        # Extract theme style for header coloring
+        header_color: str | None = None
+        if style_header:
+            try:
+                from google_slides_mcp.utils.style import (
+                    STYLE_FIELDS,
+                    extract_presentation_style,
+                )
+
+                pres = await service.get_presentation(
+                    presentation_id, fields=STYLE_FIELDS
+                )
+                style = extract_presentation_style(pres)
+                header_color = style["primary_color"]
+            except Exception:
+                header_color = "#054950"
+
+        for row in range(row_count):
+            for col in range(col_count):
+                current_text = (
+                    current_cell_text[row][col]
+                    if row < len(current_cell_text)
+                    and col < len(current_cell_text[row])
+                    else ""
+                )
+                new_text = _unescape_text(data[row][col])
+
+                # Only delete if cell has existing content
+                if len(current_text) > 0:
+                    requests.append({
+                        "deleteText": {
+                            "objectId": table_id,
+                            "cellLocation": {
+                                "rowIndex": row,
+                                "columnIndex": col,
+                            },
+                            "textRange": {"type": "ALL"},
+                        },
+                    })
+
+                if new_text:
+                    requests.append({
+                        "insertText": {
+                            "objectId": table_id,
+                            "cellLocation": {
+                                "rowIndex": row,
+                                "columnIndex": col,
+                            },
+                            "text": new_text,
+                            "insertionIndex": 0,
+                        },
+                    })
+
+                # Style cells
+                is_header = style_header and row == 0
+                text_style: dict = {
+                    "fontFamily": font_family,
+                    "fontSize": {
+                        "magnitude": font_size + 1
+                        if is_header
+                        else font_size,
+                        "unit": "PT",
+                    },
+                    "bold": is_header,
+                }
+                fields = ["fontFamily", "fontSize", "bold"]
+
+                if is_header and header_color:
+                    text_style["foregroundColor"] = {
+                        "opaqueColor": {
+                            "rgbColor": hex_to_rgb("#FFFFFF"),
+                        },
+                    }
+                    fields.append("foregroundColor")
+
+                requests.append({
+                    "updateTextStyle": {
+                        "objectId": table_id,
+                        "cellLocation": {
+                            "rowIndex": row,
+                            "columnIndex": col,
+                        },
+                        "style": text_style,
+                        "fields": ",".join(fields),
+                        "textRange": {"type": "ALL"},
+                    },
+                })
+
+                # Header background
+                if is_header and header_color:
+                    requests.append({
+                        "updateTableCellProperties": {
+                            "objectId": table_id,
+                            "tableRange": {
+                                "location": {
+                                    "rowIndex": row,
+                                    "columnIndex": col,
+                                },
+                                "rowSpan": 1,
+                                "columnSpan": 1,
+                            },
+                            "tableCellProperties": {
+                                "tableCellBackgroundFill": {
+                                    "solidFill": {
+                                        "color": {
+                                            "rgbColor": hex_to_rgb(
+                                                header_color
+                                            ),
+                                        },
+                                    },
+                                },
+                            },
+                            "fields": "tableCellBackgroundFill",
+                        },
+                    })
+
+        if requests:
+            await service.batch_update(presentation_id, requests)
+
+        return {
+            "table_id": table_id,
+            "rows_updated": row_count,
+            "columns_updated": col_count,
+        }
+
+    @mcp.tool()
+    async def replace_text_on_slide(
+        ctx: Context,
+        presentation_id: str,
+        slide_id: str,
+        replacements: dict[str, str],
+    ) -> dict:
+        """Find and replace text within a single slide. Unlike
+        replace_placeholders (which is presentation-wide), this
+        targets only one slide. Useful for slide-specific edits
+        like updating a name, date, or label without affecting
+        other slides.
+
+        For each text element on the slide, all occurrences of
+        each search string are replaced. Example: replacing "Q1"
+        with "Q2" in a shape containing "Q1 Results" produces
+        "Q2 Results".
+
+        Args:
+            presentation_id: The presentation ID
+            slide_id: The slide to search
+            replacements: Mapping of old text to new text
+
+        Returns:
+            Dictionary with:
+            - replacements_made: dict of search term to count
+            - elements_modified: list of modified element IDs
+        """
+        from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
+        from google_slides_mcp.services.slides_service import SlidesService
+
+        middleware = GoogleAuthMiddleware()
+        credentials = await middleware.extract_credentials(ctx)
+        service = SlidesService(credentials)
+
+        slide = await service.get_page(presentation_id, slide_id)
+        requests: list[dict] = []
+        replacement_counts: dict[str, int] = {
+            k: 0 for k in replacements
+        }
+        elements_modified: list[str] = []
+
+        for element in slide.get("pageElements", []):
+            element_id = element.get("objectId", "")
+
+            # Extract full text from shape
+            full_text = ""
+            shape = element.get("shape", {})
+            for te in shape.get("text", {}).get(
+                "textElements", []
+            ):
+                text_run = te.get("textRun")
+                if text_run:
+                    full_text += text_run.get("content", "")
+
+            if not full_text:
+                continue
+
+            # Apply all replacements to the full text
+            modified_text = full_text
+            element_was_modified = False
+
+            for search, replace in replacements.items():
+                if search in modified_text:
+                    count = modified_text.count(search)
+                    replacement_counts[search] += count
+                    modified_text = modified_text.replace(
+                        search, replace
+                    )
+                    element_was_modified = True
+
+            if element_was_modified:
+                if len(full_text) > 0:
+                    requests.append({
+                        "deleteText": {
+                            "objectId": element_id,
+                            "textRange": {"type": "ALL"},
+                        },
+                    })
+                requests.append({
+                    "insertText": {
+                        "objectId": element_id,
+                        "text": modified_text,
+                        "insertionIndex": 0,
+                    },
+                })
+                elements_modified.append(element_id)
+
+        if requests:
+            await service.batch_update(presentation_id, requests)
+
+        return {
+            "replacements_made": replacement_counts,
+            "elements_modified": elements_modified,
+        }

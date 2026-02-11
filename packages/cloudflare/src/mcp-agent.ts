@@ -47,6 +47,12 @@ This server is configured for Praecipio Consulting presentations. Default colors
 
 5. UNDERSTAND SPATIAL RELATIONSHIPS. Elements like Gantt bars, timeline phases, and infographic connectors are positioned by absolute transforms. If you change column headers or date ranges, you MUST also reposition the visual elements to match.
 
+6. CAUTION WITH replace_placeholders AND replaceAllText. These are PRESENTATION-WIDE — they replace every occurrence across all slides. Only use them for uniquely-bracketed tokens like {{CLIENT_NAME}} or [[ENGAGEMENT_DATE]]. NEVER use them for common words or phrases that may appear in titles, labels, or body text. For targeted replacement on a specific slide, use replace_text_on_slide instead.
+
+7. CONTENT-FIRST PATTERN. When populating a template, PLAN ALL CONTENT FIRST before making API calls. Synthesize the complete slide-by-slide content plan from your source materials, then execute updates. Do not interleave content thinking with API calls — this wastes round-trips and leads to inconsistencies.
+
+8. BULK INSPECTION. When you need to inspect 3+ slides, use inspect_slides (plural) to fetch all slide data in a single call. Only use inspect_slide (singular) for inspecting 1–2 specific slides.
+
 ## Recommended Workflow for Building Decks
 
 When asked to create a presentation from source materials (transcripts, SOWs, briefs):

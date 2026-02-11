@@ -81,6 +81,10 @@ def register_template_tools(mcp: "FastMCP") -> None:
         Placeholders can use any format ({{name}}, {name}, [[name]], etc.).
         The tool will find and replace all occurrences across all slides.
 
+        WARNING: This is PRESENTATION-WIDE -- it replaces every match on every slide.
+        Only use for uniquely-bracketed tokens like {{CLIENT_NAME}}. For slide-scoped
+        replacement, use replace_text_on_slide instead.
+
         Ensure all replacement values are factually accurate. If any value requires
         inferring information not explicitly stated in the source material, ask the
         user to confirm first.
@@ -91,7 +95,10 @@ def register_template_tools(mcp: "FastMCP") -> None:
                 Example: {"{{name}}": "Acme Corp", "{{date}}": "2024"}
 
         Returns:
-            Dictionary with count of replacements made for each placeholder
+            Dictionary with:
+            - replacements: dict of placeholder to occurrence count
+            - total: total replacements made
+            - modified_slides: list of all slide IDs (for verification)
         """
         from google_slides_mcp.auth.middleware import GoogleAuthMiddleware
         from google_slides_mcp.services.slides_service import SlidesService
@@ -104,23 +111,47 @@ def register_template_tools(mcp: "FastMCP") -> None:
         requests = [
             {
                 "replaceAllText": {
-                    "containsText": {"text": placeholder, "matchCase": True},
+                    "containsText": {
+                        "text": placeholder,
+                        "matchCase": True,
+                    },
                     "replaceText": replacement,
                 }
             }
             for placeholder, replacement in replacements.items()
         ]
 
-        response = await service.batch_update(presentation_id, requests)
+        response = await service.batch_update(
+            presentation_id, requests
+        )
 
         # Extract replacement counts from response
         counts = {}
-        for i, (placeholder, _) in enumerate(replacements.items()):
+        for i, (placeholder, _) in enumerate(
+            replacements.items()
+        ):
             reply = response.get("replies", [])[i]
-            occurrences = reply.get("replaceAllText", {}).get("occurrencesChanged", 0)
+            occurrences = (
+                reply.get("replaceAllText", {}).get(
+                    "occurrencesChanged", 0
+                )
+            )
             counts[placeholder] = occurrences
 
-        return {"replacements": counts, "total": sum(counts.values())}
+        # Fetch slide IDs so the agent knows which to verify
+        presentation = await service.get_presentation(
+            presentation_id, fields="slides.objectId"
+        )
+        modified_slides = [
+            s.get("objectId")
+            for s in presentation.get("slides", [])
+        ]
+
+        return {
+            "replacements": counts,
+            "total": sum(counts.values()),
+            "modified_slides": modified_slides,
+        }
 
     @mcp.tool()
     async def replace_placeholder_with_image(
@@ -184,12 +215,16 @@ def register_template_tools(mcp: "FastMCP") -> None:
         TYPICAL WORKFLOW: search_presentations -> copy_template ->
         analyze_presentation -> replace_placeholders
 
-        Use to discover templates or find existing presentations by name.
-        Returns Google Slides presentations and PowerPoint files.
+        Use to discover templates or find existing presentations
+        by name. Google Drive uses substring matching on file
+        names. Use the shortest distinctive keyword (e.g.,
+        'kickoff' not 'Engagement Kick Off Template'). Search is
+        case-insensitive. Returns Google Slides and PowerPoint
+        files.
 
         Args:
-            query: Search term to match against file names. If omitted,
-                returns all accessible presentations.
+            query: Search term to match against file names. If
+                omitted, returns all accessible presentations.
             folder_id: Limit search to a specific folder ID
             max_results: Maximum number of results to return (1-100, default 20)
             page_token: Token for retrieving the next page of results

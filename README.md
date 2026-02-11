@@ -48,7 +48,7 @@ google-slides-mcp/
 ├── packages/
 │   ├── python/                 # Python FastMCP implementation
 │   │   ├── src/google_slides_mcp/
-│   │   │   ├── tools/          # All 33 MCP tools
+│   │   │   ├── tools/          # All 36 MCP tools
 │   │   │   └── prompts/        # Workflow and discovery prompts
 │   │   ├── scripts/
 │   │   ├── tests/
@@ -60,7 +60,7 @@ google-slides-mcp/
 │       │   ├── mcp-agent.ts    # McpAgent Durable Object
 │       │   ├── api/            # Google API REST clients + TokenManager
 │       │   ├── auth/           # Google OAuth handler
-│       │   ├── tools/          # All 33 MCP tools
+│       │   ├── tools/          # All 36 MCP tools
 │       │   ├── prompts/        # Workflow and discovery prompts
 │       │   └── utils/          # EMU, color, transform utilities
 │       ├── wrangler.toml
@@ -72,7 +72,7 @@ google-slides-mcp/
 └── README.md
 ```
 
-## Available Tools (33 total)
+## Available Tools (36 total)
 
 ### Low-Level Tools
 - `batch_update` - Execute raw batchUpdate requests against Google Slides API
@@ -95,6 +95,8 @@ google-slides-mcp/
 - `update_slide_content` - Update slide text by placeholder type
 - `update_presentation_content` - Bulk update text across multiple slides
 - `apply_text_style` - Apply consistent styling across slides
+- `update_table_content` - Update table cell text in bulk with optional header styling
+- `replace_text_on_slide` - Slide-scoped find-and-replace (safer than presentation-wide replacement)
 
 ### Positioning Tools
 - `position_element` - Position and size elements using inches and alignment
@@ -106,6 +108,7 @@ google-slides-mcp/
 - `list_layouts` - List available slide layouts with placeholder types
 - `get_element_info` - Get element details in human-readable format
 - `inspect_slide` - Comprehensive slide audit with overflow/empty warnings
+- `inspect_slides` - Bulk inspect multiple slides in a single API call
 - `export_thumbnail` - Generate slide thumbnails
 
 ### Cleanup Tools
