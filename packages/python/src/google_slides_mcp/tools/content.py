@@ -625,42 +625,44 @@ def register_content_tools(mcp: "FastMCP") -> None:
                         },
                     })
 
-                # Style cells
-                is_header = style_header and row == 0
-                text_style: dict = {
-                    "fontFamily": font_family,
-                    "fontSize": {
-                        "magnitude": font_size + 1
-                        if is_header
-                        else font_size,
-                        "unit": "PT",
-                    },
-                    "bold": is_header,
-                }
-                fields = ["fontFamily", "fontSize", "bold"]
-
-                if is_header and header_color:
-                    text_style["foregroundColor"] = {
-                        "opaqueColor": {
-                            "rgbColor": hex_to_rgb("#FFFFFF"),
+                # Style cells — only if the cell will have text
+                if new_text:
+                    is_header = style_header and row == 0
+                    text_style: dict = {
+                        "fontFamily": font_family,
+                        "fontSize": {
+                            "magnitude": font_size + 1
+                            if is_header
+                            else font_size,
+                            "unit": "PT",
                         },
+                        "bold": is_header,
                     }
-                    fields.append("foregroundColor")
+                    fields = ["fontFamily", "fontSize", "bold"]
 
-                requests.append({
-                    "updateTextStyle": {
-                        "objectId": table_id,
-                        "cellLocation": {
-                            "rowIndex": row,
-                            "columnIndex": col,
+                    if is_header and header_color:
+                        text_style["foregroundColor"] = {
+                            "opaqueColor": {
+                                "rgbColor": hex_to_rgb("#FFFFFF"),
+                            },
+                        }
+                        fields.append("foregroundColor")
+
+                    requests.append({
+                        "updateTextStyle": {
+                            "objectId": table_id,
+                            "cellLocation": {
+                                "rowIndex": row,
+                                "columnIndex": col,
+                            },
+                            "style": text_style,
+                            "fields": ",".join(fields),
+                            "textRange": {"type": "ALL"},
                         },
-                        "style": text_style,
-                        "fields": ",".join(fields),
-                        "textRange": {"type": "ALL"},
-                    },
-                })
+                    })
 
                 # Header background
+                is_header = style_header and row == 0
                 if is_header and header_color:
                     requests.append({
                         "updateTableCellProperties": {

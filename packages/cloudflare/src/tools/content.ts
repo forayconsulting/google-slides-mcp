@@ -634,33 +634,36 @@ Use inspect_slide with include_table_data=true to read existing table content be
               });
             }
 
-            // Style cells
-            const isHeader = style_header && row === 0;
-            const textStyle: Record<string, unknown> = {
-              fontFamily: font_family,
-              fontSize: { magnitude: isHeader ? font_size + 1 : font_size, unit: "PT" },
-              bold: isHeader,
-            };
-            const fields = ["fontFamily", "fontSize", "bold"];
-
-            if (isHeader && headerColor) {
-              textStyle.foregroundColor = {
-                opaqueColor: { rgbColor: hexToRgb("#FFFFFF") },
+            // Style cells — only if the cell will have text
+            if (newText) {
+              const isHeader = style_header && row === 0;
+              const textStyle: Record<string, unknown> = {
+                fontFamily: font_family,
+                fontSize: { magnitude: isHeader ? font_size + 1 : font_size, unit: "PT" },
+                bold: isHeader,
               };
-              fields.push("foregroundColor");
+              const fields = ["fontFamily", "fontSize", "bold"];
+
+              if (isHeader && headerColor) {
+                textStyle.foregroundColor = {
+                  opaqueColor: { rgbColor: hexToRgb("#FFFFFF") },
+                };
+                fields.push("foregroundColor");
+              }
+
+              requests.push({
+                updateTextStyle: {
+                  objectId: table_id,
+                  cellLocation: { rowIndex: row, columnIndex: col },
+                  style: textStyle,
+                  fields: fields.join(","),
+                  textRange: { type: "ALL" },
+                },
+              });
             }
 
-            requests.push({
-              updateTextStyle: {
-                objectId: table_id,
-                cellLocation: { rowIndex: row, columnIndex: col },
-                style: textStyle,
-                fields: fields.join(","),
-                textRange: { type: "ALL" },
-              },
-            });
-
             // Header background
+            const isHeader = style_header && row === 0;
             if (isHeader && headerColor) {
               requests.push({
                 updateTableCellProperties: {
