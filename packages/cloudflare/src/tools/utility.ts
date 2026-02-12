@@ -461,7 +461,7 @@ IMPORTANT: ALWAYS run this after creating or modifying a slide. Do not skip this
 - BEFORE: Understand the slide's visual structure, element positions, and existing formatting
 - AFTER: Verify your changes look correct and no warnings are present
 
-If warnings indicate text overflow, consider: shorter text, smaller font, or larger shape.
+CRITICAL: Overflow warnings mean the slide is BROKEN — text is visually cut off or colliding with other elements. You MUST fix every overflow warning before proceeding. Options: reduce font size, expand the shape, or shorten the text. NEVER dismiss overflow with "autofit should handle this."
 For TABLE elements, set include_table_data=true to get a cells[][] array with all cell text.
 To inspect multiple slides at once, use inspect_slides instead (single API call).`,
     {

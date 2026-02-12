@@ -26,7 +26,11 @@ export function registerLowLevelTools(
     "batch_update",
     `Execute raw batchUpdate requests against Google Slides API. WHEN TO USE: Only when semantic tools don't cover your use case - e.g., deleting slides (deleteObject), table operations, animations, grouping elements. PREFER INSTEAD: replace_placeholders for text replacement, update_slide_content for placeholder updates, position_element for moving/resizing. All 47 API request types supported.
 
-When modifying positioned elements (Gantt bars, timeline phases, infographic connectors), first use inspect_slide or get_page to understand spatial relationships. If you change text labels that correspond to positions (e.g., date headers), you must also update the transforms of related visual elements.`,
+When modifying positioned elements (Gantt bars, timeline phases, infographic connectors), first use inspect_slide or get_page to understand spatial relationships. If you change text labels that correspond to positions (e.g., date headers), you must also update the transforms of related visual elements.
+
+CRITICAL: insertText strips all existing formatting. ALWAYS pair every insertText with a matching updateTextStyle request to set fontFamily, fontSize, bold, italic, and foregroundColor. Omitting the style request will reset text to Arial 14pt.
+
+To remove unused elements, use deleteObject — never blank them with whitespace via insertText.`,
     {
       presentation_id: z.string().describe("The ID of the presentation to modify"),
       requests: z.array(z.record(z.unknown())).describe("Array of request objects (createSlide, insertText, updatePageElementTransform, etc.)"),

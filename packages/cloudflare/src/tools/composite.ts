@@ -384,7 +384,11 @@ export function registerCompositeTools(
 
   server.tool(
     "create_table_slide",
-    "Create a complete themed table slide in one call. Automatically extracts and applies the presentation's theme colors to headers and zebra stripes. Best for: team rosters, deliverable lists, timeline/milestone tables, agenda breakdowns. Provide data as a 2D array where the first row is the header. Creates a TITLE_ONLY slide (or uses existing slide_id) and sets the title via template placeholder.",
+    `Create a complete themed table slide in one call. Automatically extracts and applies the presentation's theme colors to headers and zebra stripes. Best for: team rosters, deliverable lists, timeline/milestone tables, agenda breakdowns. Provide data as a 2D array where the first row is the header. Creates a TITLE_ONLY slide (or uses existing slide_id) and sets the title via template placeholder.
+
+WARNING: Layout selection may pick decorative layouts (quote slides, section dividers) in some templates. After creation, verify the slide matches the deck's visual language. If the layout is wrong, delete the slide and create manually using create_slide with the correct layout ID from list_layouts.
+
+BOUNDARY CHECK: After creating the table, verify table_y + table_height <= 5.63". For tables with 6+ rows, ensure the table starts no lower than y=1.5" so all rows are visible. Tables that extend past the slide boundary will have invisible rows.`,
     {
       presentation_id: z.string().describe("The presentation ID"),
       title: z.string().describe("Slide title"),

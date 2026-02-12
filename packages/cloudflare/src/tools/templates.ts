@@ -29,7 +29,9 @@ export function registerTemplateTools(
    */
   server.tool(
     "copy_template",
-    "Copy a Google Slides template to create a new presentation. WORKFLOW TIP: After copying, use analyze_presentation to understand the template structure, then replace_placeholders or update_presentation_content to populate content. Can also convert PowerPoint (.pptx) files to native Google Slides format.",
+    `Copy a Google Slides template to create a new presentation. WORKFLOW TIP: After copying, use analyze_presentation to understand the template structure, then replace_placeholders or update_presentation_content to populate content. Can also convert PowerPoint (.pptx) files to native Google Slides format.
+
+IMPORTANT: After copying, inspect ALL slides to identify structural slides (legal disclaimers, back covers) that must be preserved. Never delete the last 1-2 slides of a template — they are typically legal/boilerplate content required in every client-facing deck.`,
     {
       template_id: z.string().describe("Source presentation ID to copy"),
       new_name: z.string().describe("Name for the new presentation"),
@@ -82,7 +84,9 @@ WARNING: This is PRESENTATION-WIDE — it replaces every match on every slide. O
 
 Ensure all replacement values are factually accurate. If any value requires inferring information not explicitly stated in the source material, ask the user to confirm first.
 
-Returns a modified_slides list of all slide IDs so you know which slides to verify with inspect_slide or inspect_slides.`,
+Returns a modified_slides list of all slide IDs so you know which slides to verify with inspect_slide or inspect_slides.
+
+OVERFLOW RISK: When replacement text is significantly longer than the placeholder (>1.5x characters), the text may overflow its container. After replacement, always verify affected slides with inspect_slide and reduce font sizes or expand shapes as needed. Cover slide titles should use <=33pt to accommodate long names.`,
     {
       presentation_id: z.string().describe("The presentation to modify"),
       replacements: z.record(z.string()).describe("Mapping of placeholder strings to replacement values"),

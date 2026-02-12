@@ -543,7 +543,14 @@ IMPORTANT: Before bulk-updating slides, use inspect_slide on at least one repres
     "update_table_content",
     `Update table cell text in bulk. Provide a 2D data array (row-major) to replace cell contents. Optionally styles the header row with bold text and the presentation's primary theme color.
 
-Use inspect_slide with include_table_data=true to read existing table content before updating.`,
+Use inspect_slide with include_table_data=true to read existing table content before updating.
+
+FORMATTING TIPS:
+- Bold the index/number column (01, 02, etc.) for scannability.
+- For "label: value" cells, update_table_content applies uniform formatting. To bold labels and italicize values within the same cell, follow up with batch_update using updateTextStyle on specific character index ranges.
+- Use \\u000b (soft return) for line breaks within the same bullet; use \\n for separate items.
+- Ensure table_y + table_height <= 5.63" (slide boundary). If the table extends past the slide, rows will be invisible.
+- Fill available vertical space — if content is sparse, increase font_size to avoid >25% dead space at the bottom of the slide.`,
     {
       presentation_id: z.string().describe("The presentation ID"),
       slide_id: z.string().describe("The slide containing the table"),
@@ -724,7 +731,9 @@ Use inspect_slide with include_table_data=true to read existing table content be
     "replace_text_on_slide",
     `Find and replace text within a single slide. Unlike replace_placeholders (which is presentation-wide), this targets only one slide. Useful for slide-specific edits like updating a name, date, or label without affecting other slides.
 
-For each text element on the slide, all occurrences of each search string are replaced. Example: replacing "Q1" with "Q2" in a shape containing "Q1 Results" produces "Q2 Results".`,
+For each text element on the slide, all occurrences of each search string are replaced. Example: replacing "Q1" with "Q2" in a shape containing "Q1 Results" produces "Q2 Results".
+
+NOTE: This performs replaceAllText scoped to one slide. It preserves existing character-level formatting for the surrounding text. Unlike batch_update insertText (which strips formatting), this is safer for targeted string swaps in already-styled elements.`,
     {
       presentation_id: z.string().describe("The presentation ID"),
       slide_id: z.string().describe("The slide to search"),

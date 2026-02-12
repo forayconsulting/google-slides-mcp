@@ -53,6 +53,29 @@ This server is configured for Praecipio Consulting presentations. Default colors
 
 8. BULK INSPECTION. When you need to inspect 3+ slides, use inspect_slides (plural) to fetch all slide data in a single call. Only use inspect_slide (singular) for inspecting 1–2 specific slides.
 
+9. FORMAT PRESERVATION. deleteText + insertText strips ALL formatting, resetting to Arial 14pt. ALWAYS follow with updateTextStyle to set font family (Nunito Sans), size, bold, italic, and color. Every batch_update that inserts text must pair it with a style request.
+
+10. BOLD ANCHORS. Every table cell containing paragraph-length text needs a bold lead phrase for scannability. For "label: value" cells, bold the label. For numbered agenda items, bold the numbers. Never leave a table with uniform-weight body text.
+
+11. DELETE, DON'T BLANK. Remove unused template elements with deleteObject, never by inserting whitespace. This applies to text boxes, images, shapes, and placeholder elements. Blank-filled elements create ghost artifacts.
+
+12. STRUCTURAL SLIDE PRESERVATION. Never delete legal/confidentiality disclaimer slides or blank back covers from templates. When cleaning up a copied template, categorize each slide: "content" (safe to delete), "structural" (legal, back cover — always keep). Specifically: always preserve the last 1–2 slides of any template.
+
+## Overflow Prevention Rules
+
+- After replacing placeholder text, compare new text length to original. If >1.5x longer, reduce font size or expand the box.
+- Cover slide titles: target <=33pt to accommodate long client/project names.
+- After ANY text operation, check inspect_slide results. Overflow warnings = BROKEN slide. Fix immediately — reduce font, expand shape, or shorten text. NEVER dismiss overflow with "autofit should handle this."
+- Table boundary check: after creating any table, verify table_y + table_height <= 5.63". If exceeded, reduce rows, shrink font, or recreate on a layout with more content area.
+
+## Table Formatting Patterns
+
+- Index/number columns (01, 02, etc.): always bold.
+- Header row: bold + theme color background (this is the default for update_table_content with style_header=true).
+- "Label: value" cells: bold the label portion, italic the value portion. This requires batch_update with updateTextStyle targeting character ranges — update_table_content alone cannot do this.
+- Use \\u000b (vertical tab / soft return) for line breaks within a cell that should stay in the same bullet context. Use \\n only for separate bullet points.
+- Ensure formatting consistency across parallel rows — if Week 1 uses a pattern, Week 2 must match exactly.
+
 ## Recommended Workflow for Building Decks
 
 When asked to create a presentation from source materials (transcripts, SOWs, briefs):
@@ -90,21 +113,34 @@ When asked to create a presentation from source materials (transcripts, SOWs, br
 - Do NOT attempt to position_element on tables — it will return an error. Delete and recreate instead.
 - When building multi-slide decks, build all slides sequentially. Do not skip inspect_slide verification.
 
-## Suggested Slide Structures
+## Kickoff Deck Workflow (Template-Based)
 
-For client kickoff/workshop decks, a proven structure is:
-1. Title slide (engagement name, client, date)
-2. Agenda/overview
-3. Strategic context ("Why now?")
-4. Current state metrics (use create_dashboard_slide)
-5. Engagement team (use create_table_slide)
-6. Approach overview
-7-8. Day-by-day agenda (use create_table_slide)
-9. Deliverables (use create_table_slide)
-10. Timeline & milestones
-11. Next steps
+When using the Engagement Kick Off Template:
 
-This is a suggestion — always adapt to the source material provided.
+1. COPY the template via copy_template
+2. INSPECT ALL SLIDES with inspect_slides to understand the full template structure
+3. IDENTIFY structural slides (legal disclaimer = usually last or second-to-last, blank back cover = last slide) — mark these as KEEP
+4. REPLACE global placeholders ({{Client}}, {{Project Name}}, dates) via replace_placeholders — use short values to avoid overflow
+5. DELETE irrelevant content slides via batch_update deleteObject — but NEVER delete structural slides
+6. POPULATE each remaining slide:
+   - For tables: use update_table_content, then follow up with batch_update for bold/italic formatting within cells
+   - For text boxes: use batch_update insertText + updateTextStyle (always paired)
+   - For new slides: prefer the template's standard content layout (white bg + teal subtitle), NOT decorative layouts
+7. VERIFY each slide with inspect_slide after population — fix overflow warnings before moving on
+8. FINAL PASS: inspect_slides on the entire deck, verify no overflow warnings, verify structural slides are intact at end
+
+Target slide structure for a kickoff deck:
+1. Cover (title, subtitle, team names)
+2. Agenda (numbered 2-column table, bold numbers)
+3. Team (key personnel table, bold names)
+4. Engagement Overview (text boxes with bold titles, italic descriptions)
+5. Scope (in-scope bullets, out-of-scope italic)
+6. Assumptions (bullet list with bold lead phrases)
+7. Timeline (Gantt table — columns = actual weeks only, no empty columns)
+8. First 2 Weeks (activities table, bold labels, italic values)
+9. Key Stakeholders (table — role, name, title, participation)
+10. Legal Disclaimer (KEEP from template — do not modify)
+11. Back Cover (KEEP from template — do not modify)
 
 Authentication is required. Ensure you have valid Google OAuth credentials configured.`,
     }
